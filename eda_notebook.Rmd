@@ -1,0 +1,89 @@
+```{r}
+load(file="./data/driving.RData")
+glimpse(data)
+
+```
+
+```{r}
+year_of_observation = as.matrix(data[match("d80", colnames(data)):match("d04", colnames(data))]) %*% c(1980:2004)
+data_clean <- data %>% mutate(
+  speed_limit = sl55 * 55 + sl65 * 65 + sl70 * 70 + sl75 * 75 + slnone * 100,# assuming 100 for no speed limit
+  year_of_observation = year_of_observation,
+  blood_alcohol_limit = bac10 * 0.1 + bac08 * 0.08,
+  state=factor(state) 
+) %>% rename(
+  total_fatalities_rate = totfatrte,
+  unemployment_rate = unem,
+  zero_tolerance_law = zerotol,
+  graduated_drivers_license_law = gdl,
+  per_se_law = perse)
+```
+
+```{r}
+# boxplot over time
+data_clean %>% ggplot(aes(reorder(state,desc(total_fatalities_rate)),total_fatalities_rate,
+             fill=state)) +
+  geom_boxplot(alpha=0.4) +
+  # theme_economist_white(gray_bg=F) +
+  theme(legend.position="none",axis.text.y=element_text(size=6)) +
+  scale_y_continuous() +
+  xlab("State") +
+  ylab("Total_Fatalities_Rate") +
+  coord_flip()
+
+# lineplot over time
+data_clean %>%
+  ggplot(aes(year,total_fatalities_rate,color=state)) +
+  geom_point(alpha=0.4) +
+  geom_smooth(method="lm") +
+  facet_wrap(~state,scales="free_y") +
+  theme_economist_white(gray_bg=F) +
+  theme(legend.position="none",axis.text.x=element_text(angle=45,hjust=1,vjust=1,size=6),
+        axis.text.y=element_text(size=6)) +
+  theme(strip.text=element_text(size=4)) +
+  scale_y_continuous() +
+  xlab("State") +
+  ylab("Total_Fatalities_Rate")
+```
+```{r}
+data_clean %>%
+  ggplot(aes(unemployment_rate,total_fatalities_rate,color=state)) +
+  geom_point(alpha=0.4) +
+  geom_smooth(method="lm") +
+  facet_wrap(~state,scales="free_y") +
+  theme_economist_white(gray_bg=F) +
+  theme(legend.position="none",axis.text.x=element_text(angle=45,hjust=1,vjust=1,size=6),
+        axis.text.y=element_text(size=6)) +
+  theme(strip.text=element_text(size=4)) +
+  scale_y_continuous() +
+  xlab("unemployment_rate") +
+  ylab("Total_Fatalities_Rate")
+```
+```{r}
+data_clean %>%
+  ggplot(aes(speed_limit,total_fatalities_rate,color=state)) +
+  geom_point(alpha=0.4) +
+  geom_smooth(method="lm") +
+  facet_wrap(~state,scales="free_y") +
+  theme_economist_white(gray_bg=F) +
+  theme(legend.position="none",axis.text.x=element_text(angle=45,hjust=1,vjust=1,size=6),
+        axis.text.y=element_text(size=6)) +
+  theme(strip.text=element_text(size=4)) +
+  scale_y_continuous() +
+  xlab("speed_limit") +
+  ylab("Total_Fatalities_Rate")
+```
+```{r}
+data_clean %>%
+  ggplot(aes(blood_alcohol_limit,total_fatalities_rate,color=state)) +
+  geom_point(alpha=0.4) +
+  geom_smooth(method="lm") +
+  facet_wrap(~state,scales="free_y") +
+  theme_economist_white(gray_bg=F) +
+  theme(legend.position="none",axis.text.x=element_text(angle=45,hjust=1,vjust=1,size=6),
+        axis.text.y=element_text(size=6)) +
+  theme(strip.text=element_text(size=4)) +
+  scale_y_continuous() +
+  xlab("blood_alcohol_limit") +
+  ylab("Total_Fatalities_Rate")
+```

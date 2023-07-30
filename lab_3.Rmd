@@ -7,6 +7,12 @@ output:
 
 ```{r load packages, echo=FALSE, message=FALSE}
 library(tidyverse)
+library(ggrepel)
+library(ggthemes)
+library(stargazer)
+library(gridExtra)
+library(plm)
+library(knitr)
 ```
 
 
@@ -36,19 +42,80 @@ desc
     - Produce a new variable, called `year_of_observation` that re-encodes the data that is in `d80`, `d81`, ... , `d04`. 
     - Produce a new variable for each of the other variables that are one-hot encoded (i.e. `bac*` variable series). 
     - Rename these variables to sensible names that are legible to a reader of your analysis. For example, the dependent variable as provided is called, `totfatrte`. Pick something more sensible, like, `total_fatalities_rate`. There are few enough of these variables to change, that you should change them for all the variables in the data. (You will thank yourself later.)
+    
+```{r,echo=FALSE,  warning=FALSE, message=FALSE, fig.height=3}
+year_of_observation = as.matrix(data[match("d80", colnames(data)):match("d04", colnames(data))]) %*% c(1980:2004)
+data_clean <- data %>% mutate(
+  speed_limit = sl55 * 55 + sl65 * 65 + sl70 * 70 + sl75 * 75 + slnone * 100,# assuming 100 for no speed limit
+  year_of_observation = year_of_observation,
+  blood_alcohol_limit = bac10 * 0.1 + bac08 * 0.08,
+  state=factor(state) 
+) %>% rename(
+  total_fatalities_rate = totfatrte,
+  unemployment_rate = unem,
+  zero_tolerance_law = zerotol,
+  graduated_drivers_license_law = gdl,
+  per_se_law = perse)
+# ) %>% dplyr::select(
+#   year,
+#   state,
+#   total_fatalities_rate,
+#   seatbelt,
+#   speed_limit,
+#   blood_alcohol_limit,
+#   year_of_observation,
+#   unemployment_rate,
+#   perc14_24,
+#   zero_tolerance_law,
+#   graduated_drivers_license_law,
+#   per_se_law
+# )
+```
+
+    
 2. (5 points) Provide a description of the basic structure of the dataset. What is this data? How, where, and when is it collected? Is the data generated through a survey or some other method? Is the data that is presented a sample from the population, or is it a *census* that represents the entire population? Minimally, this should include:
     - How is the our dependent variable of interest `total_fatalities_rate` defined? 
 3. (20 points) Conduct a very thorough EDA, which should include both graphical and tabular techniques, on the dataset, including both the dependent variable `total_fatalities_rate` and the potential explanatory variables. Minimally, this should include: 
     - How is the our dependent variable of interest `total_fatalities_rate` defined? 
     - What is the average of `total_fatalities_rate` in each of the years in the time period covered in this dataset? 
 
+```{r,echo=FALSE,  warning=FALSE, message=FALSE, fig.height=4}
+# boxplot over time
+data_clean %>% ggplot(aes(reorder(state,desc(total_fatalities_rate)),total_fatalities_rate,
+             fill=state)) +
+  geom_boxplot(alpha=0.4) +
+  # theme_economist_white(gray_bg=F) +
+  theme(legend.position="none",axis.text.y=element_text(size=6)) +
+  scale_y_continuous() +
+  xlab("State") +
+  ylab("Total_Fatalities_Rate") +
+  coord_flip()
+
+# lineplot over time
+data_clean %>%
+  ggplot(aes(year,total_fatalities_rate,color=state)) +
+  geom_point(alpha=0.4) +
+  geom_smooth(method="lm") +
+  facet_wrap(~state,scales="free_y") +
+  theme_economist_white(gray_bg=F) +
+  theme(legend.position="none",axis.text.x=element_text(angle=45,hjust=1,vjust=1,size=6),
+        axis.text.y=element_text(size=6)) +
+  theme(strip.text=element_text(size=4)) +
+  scale_y_continuous() +
+  xlab("State") +
+  ylab("Total_Fatalities_Rate")
+```
+
+
+
 As with every EDA this semester, the goal of this EDA is not to document your own process of discovery -- save that for an exploration notebook -- but instead it is to bring a reader that is new to the data to a full understanding of the important features of your data as quickly as possible. In order to do this, your EDA should include a detailed, orderly narrative description of what you want your reader to know. Do not include any output -- tables, plots, or statistics -- that you do not intend to write about.
 
 # (15 points) Preliminary Model
 
 Estimate a linear regression model of *totfatrte* on a set of dummy variables for the years 1981 through 2004 and interpret what you observe. In this section, you should address the following tasks: 
-
+<!-- what does  -->
 - Why is fitting a linear model a sensible starting place? 
+<!--change gradually from previous year -->
 - What does this model explain, and what do you find in this model? 
 - Did driving become safer over this period? Please provide a detailed explanation.
 - What, if any, are the limitation of this model. In answering this, please consider **at least**: 
