@@ -121,6 +121,28 @@ Estimate a linear regression model of *totfatrte* on a set of dummy variables fo
 - What, if any, are the limitation of this model. In answering this, please consider **at least**: 
     - Are the parameter estimates reliable, unbiased estimates of the truth? Or, are they biased due to the way that the data is structured?
     - Are the uncertainty estimate reliable, unbiased estimates of sampling based variability? Or, are they biased due to the way that the data is structured? 
+  
+> Linear models are a sensible place to start because they are simple and easy to interpret (see week 11 intro slides)
+
+> This model describes the total fatality rate conditional on the year the driving occured. Each year acts as a dummy variable that changes the expected total fatality rate. Adding the coefficient of the year to the intercept gives the expected fatality rate for that year. For example
+
+$$ total fatality rate_{1981} = \beta_0 + \beta_{1981} * 1 + \beta_{1982} * 0  $$ 
+
+> The model suggest that driving got safer over the period. The estimates for years in the in 1980 and 1981 have estimates of 8 and 6 which represent that the fatality rate increases during these years. Most years in the 80s have positive significant estimates 
+
+> linear models, they are not reliable with panel data because they violate iid. for example the state variable represents the location in the US that the drivers are in. the state is repeated across years
+> pooled data (not independent) has to do with the way the data is strucutured not the sampling variability
+
+```{r}
+data_clean
+names(data_clean)
+mod <- lm(total_fatalities_rate ~ d80 + d81 + d82 + d83 + d84 + d85 +d86 + d87 + 
+            d88 + d89 + d90 + d91 + d92 + d93 + d94 +d95 + d96 + d97 + d98 +
+            d99 + d00 + d01 +d02 + d03 +d04, data = data_clean)
+summary(mod)
+# make sure year is a factor, not int
+```
+
 
 # (15 points) Expanded Model 
 
@@ -135,6 +157,11 @@ Expand the **Preliminary Model** by adding variables related to the following co
 - Percent of the population between 14 and 24 years old
 - Unemployment rate
 - Vehicle miles driven per capita. 
+
+```{r}
+
+```
+
 
 If it is appropriate, include transformations of these variables. Please carefully explain carefully your rationale, which should be based on your EDA, behind any transformation you made. If no transformation is made, explain why transformation is not needed. 
 
