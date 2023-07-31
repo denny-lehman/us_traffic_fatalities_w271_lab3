@@ -144,8 +144,9 @@ summary(mod)
 ```
 
 ```{r}
-mod2 <- lm(totfatrte ~ factor(year), data=data)
-summary(mod2)
+# alternative model recommended by scott  because it's easier
+# mod2 <- lm(totfatrte ~ factor(year), data=data)
+# summary(mod2)
 ```
 
 
@@ -163,15 +164,40 @@ Expand the **Preliminary Model** by adding variables related to the following co
 - Unemployment rate
 - Vehicle miles driven per capita. 
 
-```{r}
-data_clean
+```{r eda on the variables will cut later}
 
 mod3 <- lm(total_fatalities_rate ~ unemployment_rate, data=data_clean)
 summary(mod3)
 
-loess(,data= data_clean)
+example <- loess(total_fatalities_rate ~ unemployment_rate,data= data_clean)
 data_clean %>%
-ggplot() + geom_point(aes(unemployment_rate, total_fatalities_rate))
+ggplot() + geom_point(aes(unemployment_rate, total_fatalities_rate)) + geom_line(example)
+
+data_clean %>%
+  ggplot() + geom_histogram(aes(total_fatalities_rate))
+ggplot(data=data_clean, aes(x=unemployment_rate, y=total_fatalities_rate, col=sl55))+geom_point()+ 
+        stat_smooth()
+
+ggplot(data=data_clean, aes(x=unemployment_rate, y=total_fatalities_rate, col=state))+geom_point()+ 
+        stat_smooth()
+
+ggplot(data=data_clean, aes(x=unemployment_rate, y=total_fatalities_rate))+geom_point()+ 
+        stat_smooth()
+
+ggplot(data=data_clean, aes(x=unemployment_rate, y=total_fatalities_rate, col=bac08))+geom_point()+ 
+        stat_smooth(method = 'lm')
+
+# bac is continuous, but has so few distinct values that we can represent it as ordinal values
+ggplot(data=data_clean, aes(group=bac10, y=total_fatalities_rate))+geom_boxplot()
+ggplot(data=data_clean, aes(group=bac08, y=total_fatalities_rate))+geom_boxplot()
+
+ggplot(data=data_clean, aes(group=factor(seatbelt, levels =c("0","1","2")), y=total_fatalities_rate))+geom_boxplot()
+
+ggplot(data=data, aes(group=factor(year), y=totfatrte))+geom_boxplot()
+ggplot(data=data_clean, aes(group=factor(per_se_law), y=total_fatalities_rate))+geom_boxplot()
+
+plot(x=data_clean$unemployment_rate, y=data_clean$total_fatalities_rate, type="p")
+lines(example, x =data_clean$unemployment_rate )
 ```
 
 
@@ -180,6 +206,8 @@ If it is appropriate, include transformations of these variables. Please careful
 - How are the blood alcohol variables defined? Interpret the coefficients that you estimate for this concept. 
 - Do *per se laws* have a negative effect on the fatality rate? 
 - Does having a primary seat belt law? 
+
+> Blood alcohol variables describe the legal blood alcohol content (BAC) is for a driver. If the Driver's BAC is over the legal limit, then they are illegally driving while intoxicated. There are two columns in the driving dataset, bac08 and bac10. The bac08 variable describes if the state had a 0.08 BAC limit that year, with 0 being no law and 1 meaning having a law. If the law went into effect for a partial year, then the value is factional for the amount of time it was in effect (a law starting in June would have 6/12 months = 0.5 value). 
 
 # (15 points) State-Level Fixed Effects 
 
