@@ -138,9 +138,14 @@ data_clean
 names(data_clean)
 mod <- lm(total_fatalities_rate ~ d80 + d81 + d82 + d83 + d84 + d85 +d86 + d87 + 
             d88 + d89 + d90 + d91 + d92 + d93 + d94 +d95 + d96 + d97 + d98 +
-            d99 + d00 + d01 +d02 + d03 +d04, data = data_clean)
+            d99 + d00 + d01 +d02 + d03, data = data_clean)
 summary(mod)
 # make sure year is a factor, not int
+```
+
+```{r}
+mod2 <- lm(totfatrte ~ factor(year), data=data)
+summary(mod2)
 ```
 
 
@@ -159,7 +164,14 @@ Expand the **Preliminary Model** by adding variables related to the following co
 - Vehicle miles driven per capita. 
 
 ```{r}
+data_clean
 
+mod3 <- lm(total_fatalities_rate ~ unemployment_rate, data=data_clean)
+summary(mod3)
+
+loess(,data= data_clean)
+data_clean %>%
+ggplot() + geom_point(aes(unemployment_rate, total_fatalities_rate))
 ```
 
 
