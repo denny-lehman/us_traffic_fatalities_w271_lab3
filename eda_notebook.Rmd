@@ -1,3 +1,15 @@
+```{r load packages, echo=FALSE, message=FALSE}
+library(tidyverse)
+library(ggrepel)
+library(ggthemes)
+library(stargazer)
+library(gridExtra)
+library(plm)
+library(knitr)
+library(patchwork)
+```
+
+
 ```{r}
 load(file="./data/driving.RData")
 glimpse(data)
@@ -8,7 +20,7 @@ glimpse(data)
 year_of_observation = as.matrix(data[match("d80", colnames(data)):match("d04", colnames(data))]) %*% c(1980:2004)
 data_clean <- data %>% mutate(
   speed_limit = sl55 * 55 + sl65 * 65 + sl70 * 70 + sl75 * 75 + slnone * 100,# assuming 100 for no speed limit
-  year_of_observation = year_of_observation,
+  year_of_observation = as.numeric(year_of_observation),
   blood_alcohol_limit = bac10 * 0.1 + bac08 * 0.08,
   state=factor(state) 
 ) %>% rename(
@@ -61,18 +73,33 @@ data_clean %>%
 ```
 ```{r}
 data_clean %>%
-  ggplot(aes(speed_limit,total_fatalities_rate,color=state)) +
+  ggplot(aes(year,speed_limit,color=state)) +
   geom_point(alpha=0.4) +
-  geom_smooth(method="lm") +
+  # geom_smooth() +
   facet_wrap(~state,scales="free_y") +
   theme_economist_white(gray_bg=F) +
   theme(legend.position="none",axis.text.x=element_text(angle=45,hjust=1,vjust=1,size=6),
         axis.text.y=element_text(size=6)) +
   theme(strip.text=element_text(size=4)) +
   scale_y_continuous() +
-  xlab("speed_limit") +
-  ylab("Total_Fatalities_Rate")
+  xlab("year") +
+  ylab("speed_limit")
 ```
+```{r}
+data_clean %>%
+  ggplot(aes(year,seatbelt,color=state)) +
+  geom_line() +
+  # geom_smooth() +
+  facet_wrap(~state,scales="free_y") +
+  theme_economist_white(gray_bg=F) +
+  theme(legend.position="none",axis.text.x=element_text(angle=45,hjust=1,vjust=1,size=6),
+        axis.text.y=element_text(size=6)) +
+  theme(strip.text=element_text(size=4)) +
+  scale_y_continuous() +
+  xlab("year") +
+  ylab("seatbelt")
+```
+
 ```{r}
 data_clean %>%
   ggplot(aes(blood_alcohol_limit,total_fatalities_rate,color=state)) +
@@ -87,3 +114,49 @@ data_clean %>%
   xlab("blood_alcohol_limit") +
   ylab("Total_Fatalities_Rate")
 ```
+```{r, message=FALSE,warning=FALSE}
+library(GGally)
+data_clean %>% dplyr::select(
+    total_fatalities_rate,
+    seatbelt,
+    speed_limit,
+    blood_alcohol_limit,
+    year_of_observation,
+    unemployment_rate,
+    perc14_24,
+    zero_tolerance_law,
+    graduated_drivers_license_law,
+    per_se_law
+) %>% ggpairs()
+```
+```{r}
+avg_plot <- function(old_name) {
+  new_name = paste0("state_avg_", old_name)
+  data_clean %>% group_by(state) %>%
+    summarise(state_avg_fatalities_rate = mean(total_fatalities_rate),
+              "{new_name}" := mean(.data[[old_name]])) %>%
+    ggplot(aes(x=.data[[new_name]], y=state_avg_fatalities_rate)) +
+    geom_point(alpha = 0.4) +
+    geom_smooth(method = "lm") +
+    theme(
+      legend.position = "none",
+      axis.text.x = element_text(
+        angle = 45,
+        hjust = 1,
+        vjust = 1,
+        size = 6
+      ),
+      axis.text.y = element_text(size = 6)
+    ) +
+    theme(strip.text = element_text(size = 4)) +
+    scale_y_continuous() +
+    xlab(new_name) +
+    ylab("state_avg_fatalities_rate")
+}
+p1=avg_plot("speed_limit")
+p2=avg_plot("blood_alcohol_limit")
+p3=avg_plot("unemployment_rate")
+p4=avg_plot("seatbelt")
+(p1|p2)/(p3|p4)
+```
+

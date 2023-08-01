@@ -5,7 +5,7 @@ output:
   bookdown::pdf_document2: default
 ---
 
-```{r load packages, echo=FALSE, message=FALSE}
+```{r load packages,  message=FALSE}
 library(tidyverse)
 library(ggrepel)
 library(ggthemes)
@@ -13,6 +13,7 @@ library(stargazer)
 library(gridExtra)
 library(plm)
 library(knitr)
+library(patchwork)
 ```
 
 
@@ -43,11 +44,11 @@ desc
     - Produce a new variable for each of the other variables that are one-hot encoded (i.e. `bac*` variable series). 
     - Rename these variables to sensible names that are legible to a reader of your analysis. For example, the dependent variable as provided is called, `totfatrte`. Pick something more sensible, like, `total_fatalities_rate`. There are few enough of these variables to change, that you should change them for all the variables in the data. (You will thank yourself later.)
     
-```{r,echo=FALSE,  warning=FALSE, message=FALSE, fig.height=3}
+```{r,  warning=FALSE, message=FALSE, fig.height=3}
 year_of_observation = as.matrix(data[match("d80", colnames(data)):match("d04", colnames(data))]) %*% c(1980:2004)
 data_clean <- data %>% mutate(
   speed_limit = sl55 * 55 + sl65 * 65 + sl70 * 70 + sl75 * 75 + slnone * 100,# assuming 100 for no speed limit
-  year_of_observation = year_of_observation,
+  year_of_observation = as.numeric(year_of_observation),
   blood_alcohol_limit = bac10 * 0.1 + bac08 * 0.08,
   state=factor(state) 
 ) %>% rename(
@@ -75,37 +76,44 @@ data_clean <- data %>% mutate(
     
 2. (5 points) Provide a description of the basic structure of the dataset. What is this data? How, where, and when is it collected? Is the data generated through a survey or some other method? Is the data that is presented a sample from the population, or is it a *census* that represents the entire population? Minimally, this should include:
     - How is the our dependent variable of interest `total_fatalities_rate` defined? 
+    
+    <!-- total traffic fatalities divided by state population -->
+    
 3. (20 points) Conduct a very thorough EDA, which should include both graphical and tabular techniques, on the dataset, including both the dependent variable `total_fatalities_rate` and the potential explanatory variables. Minimally, this should include: 
     - How is the our dependent variable of interest `total_fatalities_rate` defined? 
     - What is the average of `total_fatalities_rate` in each of the years in the time period covered in this dataset? 
 
-```{r,echo=FALSE,  warning=FALSE, message=FALSE, fig.height=4}
+
+```{r  warning=FALSE, message=FALSE, fig.height=4}
+data_clean <- data_clean %>% mutate(log_total_fatalities_rate=log(total_fatalities_rate))
+```
+
+
+```{r, warning=FALSE, message=FALSE, fig.height=4}
 # boxplot over time
-data_clean %>% ggplot(aes(reorder(state,desc(total_fatalities_rate)),total_fatalities_rate,
+data_clean %>% ggplot(aes(reorder(state,desc(log_total_fatalities_rate)),log_total_fatalities_rate,
              fill=state)) +
   geom_boxplot(alpha=0.4) +
   # theme_economist_white(gray_bg=F) +
   theme(legend.position="none",axis.text.y=element_text(size=6)) +
   scale_y_continuous() +
   xlab("State") +
-  ylab("Total_Fatalities_Rate") +
+  ylab("Log Total Fatalities Rate") +
   coord_flip()
 
 # lineplot over time
 data_clean %>%
-  ggplot(aes(year,total_fatalities_rate,color=state)) +
+  ggplot(aes(year,log_total_fatalities_rate,color=state)) +
   geom_point(alpha=0.4) +
   geom_smooth(method="lm") +
-  facet_wrap(~state,scales="free_y") +
-  theme_economist_white(gray_bg=F) +
+  facet_wrap(~state,scales = "free_y") +
   theme(legend.position="none",axis.text.x=element_text(angle=45,hjust=1,vjust=1,size=6),
         axis.text.y=element_text(size=6)) +
   theme(strip.text=element_text(size=4)) +
   scale_y_continuous() +
   xlab("State") +
-  ylab("Total_Fatalities_Rate")
+  ylab("Log Total Fatalities Rate")
 ```
-
 
 
 As with every EDA this semester, the goal of this EDA is not to document your own process of discovery -- save that for an exploration notebook -- but instead it is to bring a reader that is new to the data to a full understanding of the important features of your data as quickly as possible. In order to do this, your EDA should include a detailed, orderly narrative description of what you want your reader to know. Do not include any output -- tables, plots, or statistics -- that you do not intend to write about.
@@ -113,14 +121,26 @@ As with every EDA this semester, the goal of this EDA is not to document your ow
 # (15 points) Preliminary Model
 
 Estimate a linear regression model of *totfatrte* on a set of dummy variables for the years 1981 through 2004 and interpret what you observe. In this section, you should address the following tasks: 
-<!-- what does  -->
 - Why is fitting a linear model a sensible starting place? 
-<!--change gradually from previous year -->
+<!--From the eda we can see the log_total_fatalities_rate changes linearly over time. -->
 - What does this model explain, and what do you find in this model? 
+<!-- It explains on average for all states, how did log_total_fatalities_rate changes each year.  -->
 - Did driving become safer over this period? Please provide a detailed explanation.
+<!-- Yes, because all the coefficients of dummy variables for years are negative and significant at 1% level. -->
 - What, if any, are the limitation of this model. In answering this, please consider **at least**: 
     - Are the parameter estimates reliable, unbiased estimates of the truth? Or, are they biased due to the way that the data is structured?
     - Are the uncertainty estimate reliable, unbiased estimates of sampling based variability? Or, are they biased due to the way that the data is structured? 
+    
+<!-- 1) may suffer from omitted variable effect; 2) serial correlation may cause false variance estimation; 3) cannot answer the question of causality -->
+    
+  
+
+```{r}
+preliminary_model  <- plm(log_total_fatalities_rate ~ year-1, data = data_clean,
+                        index = c("state", "year"),model="pooling")
+summary(preliminary_model)
+```
+
 
 # (15 points) Expanded Model 
 
