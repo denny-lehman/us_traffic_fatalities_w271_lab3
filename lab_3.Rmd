@@ -154,6 +154,11 @@ summary(mod)
 
 Expand the **Preliminary Model** by adding variables related to the following concepts: 
 
+> consider when laws were passed, if eda shows groupings of states, years, and laws, and consider alpha corrections, like bonferoni
+> do stargazer on simple model, full model, best fit model using anova
+> discuss significance, and parameter values
+> refactor bac into one variable, with 3 factors 0, 1, 2, with 0 as no law, 1 as bac08 law, 2 as bac10 law
+
 - Blood alcohol levels 
 - Per se laws
 - Primary seat belt laws (Note that if a law was enacted sometime within a year the fraction of the year is recorded in place of the zero-one indicator.)
@@ -163,6 +168,31 @@ Expand the **Preliminary Model** by adding variables related to the following co
 - Percent of the population between 14 and 24 years old
 - Unemployment rate
 - Vehicle miles driven per capita. 
+
+> Blood alcohol variables describe the legal blood alcohol content (BAC) is for a driver. If the Driver's BAC is over the legal limit, then they are illegally driving while intoxicated. There are two columns in the driving dataset, bac08 and bac10. The bac08 variable describes if the state had a 0.08 BAC limit that year, with 0 being no law and 1 meaning having a law. If the law went into effect for a partial year, then the value is factional for the amount of time it was in effect (a law starting in June would have 6/12 months = 0.5 value). The feature bac10 has the same properties - the value is the fractional amount of time the law was in effect that year (0 not in effect, 1 in effect). 
+We engineer these features using rounding such that our new feature shows if the BAC law was effective for a majority of the year.
+
+```{r convert bac08 and bac10}
+data_clean %>% 
+  mutate(
+    bac08_in_effect = round(bac08),
+    bac10_in_effect = round(bac10)
+  ) %>%
+  dplyr::select(-c(bac08, bac10)) -> data_clean_1
+
+mod2 <- lm(total_fatalities_rate ~ d80 + d81 + d82 + d83 + d84 + d85 +d86 + d87 + 
+            d88 + d89 + d90 + d91 + d92 + d93 + d94 +d95 + d96 + d97 + d98 +
+            d99 + d00 + d01 +d02 + d03 + 
+             bac08_in_effect + bac10_in_effect, data = data_clean_1)
+summary(mod2)
+
+mod3 <- lm(total_fatalities_rate ~ bac08_in_effect + bac10_in_effect, data = data_clean_1)
+summary(mod3)
+  
+
+```
+> Adding the BAC laws to the model, we see that adding a BAC08 law to the state has the average effect of lowering the total fatality rate by -1.95 all else equal. Adding a BAC10 law to the state lowers the total fatality rate by -1.63, all else equal.
+
 
 ```{r eda on the variables will cut later}
 
@@ -207,7 +237,8 @@ If it is appropriate, include transformations of these variables. Please careful
 - Do *per se laws* have a negative effect on the fatality rate? 
 - Does having a primary seat belt law? 
 
-> Blood alcohol variables describe the legal blood alcohol content (BAC) is for a driver. If the Driver's BAC is over the legal limit, then they are illegally driving while intoxicated. There are two columns in the driving dataset, bac08 and bac10. The bac08 variable describes if the state had a 0.08 BAC limit that year, with 0 being no law and 1 meaning having a law. If the law went into effect for a partial year, then the value is factional for the amount of time it was in effect (a law starting in June would have 6/12 months = 0.5 value). 
+> Blood alcohol variables describe the legal blood alcohol content (BAC) is for a driver. If the Driver's BAC is over the legal limit, then they are illegally driving while intoxicated. There are two columns in the driving dataset, bac08 and bac10. The bac08 variable describes if the state had a 0.08 BAC limit that year, with 0 being no law and 1 meaning having a law. If the law went into effect for a partial year, then the value is factional for the amount of time it was in effect (a law starting in June would have 6/12 months = 0.5 value). The feature bac10 has the same properties - the value is the fractional amount of time the law was in effect that year (0 not in effect, 1 in effect). 
+We engineer these features using rounding such that our new feature shows if the BAC law was effective for a majority of the year.
 
 # (15 points) State-Level Fixed Effects 
 
