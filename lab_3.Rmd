@@ -49,14 +49,18 @@ year_of_observation = as.matrix(data[match("d80", colnames(data)):match("d04", c
 data_clean <- data %>% mutate(
   speed_limit = sl55 * 55 + sl65 * 65 + sl70 * 70 + sl75 * 75 + slnone * 100,# assuming 100 for no speed limit
   year_of_observation = as.numeric(year_of_observation),
-  blood_alcohol_limit = bac10 * 0.1 + bac08 * 0.08,
-  state=factor(state) 
+  blood_alcohol_limit = factor(round(bac10)*2 + round(bac08) * 1),
+  state=factor(state),
+  seatbelt=factor(seatbelt),
+  per_se_law = factor(round(perse)),
+  speed_limit_70plus=factor(round(sl70plus)),
+  graduated_drivers_license_law = factor(round(gdl)),
+  log_umeployment_rate=log(unem),
+  log_total_fatalities_rate=log(totfatrte),
+  log_vehicle_miles_per_capita=log(vehicmiles/statepop)
 ) %>% rename(
   total_fatalities_rate = totfatrte,
-  unemployment_rate = unem,
-  zero_tolerance_law = zerotol,
-  graduated_drivers_license_law = gdl,
-  per_se_law = perse)
+  zero_tolerance_law = zerotol)
 # ) %>% dplyr::select(
 #   year,
 #   state,
@@ -82,11 +86,6 @@ data_clean <- data %>% mutate(
 3. (20 points) Conduct a very thorough EDA, which should include both graphical and tabular techniques, on the dataset, including both the dependent variable `total_fatalities_rate` and the potential explanatory variables. Minimally, this should include: 
     - How is the our dependent variable of interest `total_fatalities_rate` defined? 
     - What is the average of `total_fatalities_rate` in each of the years in the time period covered in this dataset? 
-
-
-```{r  warning=FALSE, message=FALSE, fig.height=4}
-data_clean <- data_clean %>% mutate(log_total_fatalities_rate=log(total_fatalities_rate))
-```
 
 
 ```{r, warning=FALSE, message=FALSE, fig.height=4}
@@ -136,8 +135,7 @@ Estimate a linear regression model of *totfatrte* on a set of dummy variables fo
   
 
 ```{r}
-preliminary_model  <- plm(log_total_fatalities_rate ~ year-1, data = data_clean,
-                        index = c("state", "year"),model="pooling")
+preliminary_model  <- lm(log_total_fatalities_rate ~ factor(year), data = data_clean)
 summary(preliminary_model)
 ```
 
@@ -162,6 +160,31 @@ If it is appropriate, include transformations of these variables. Please careful
 - Do *per se laws* have a negative effect on the fatality rate? 
 - Does having a primary seat belt law? 
 
+**Answer**
+
+My way of adding variables related to the following concepts: (some of the vairables need log transformation because they are skewed)
+
+- Blood alcohol levels: as we talked about
+- Per se laws: similarly, round and factor 
+- Primary seat belt laws (Note that if a law was enacted sometime within a year the fraction of the year is recorded in place of the zero-one indicator.): actually there's no fractional number, so we can just factorize the *seatbelt* variable.
+- Secondary seat belt laws: combined with the primary seat belt laws.
+- Speed limits faster than 70: round and factorize the vairable *sl70plus*
+- Graduated drivers licenses: round and factorize the vairable *gdl*
+- Percent of the population between 14 and 24 years old: just use the variable *perc14_24*
+- Unemployment rate: use the *unem* **after log transformation**
+- Vehicle miles driven per capita: log(vehicmiles/statepop)
+```{r}
+expanded_model = lm(
+  total_fatalities_rate ~ factor(year) + blood_alcohol_limit + per_se_law +
+    seatbelt + speed_limit_70plus + graduated_drivers_license_law + perc14_24 +
+    log_umeployment_rate + log_vehicle_miles_per_capita,
+  data = data_clean
+)
+summary(expanded_model)
+```
+
+
+
 # (15 points) State-Level Fixed Effects 
 
 Re-estimate the **Expanded Model** using fixed effects at the state level. 
@@ -174,6 +197,17 @@ Which set of estimates do you think is more reliable? Why do you think this?
 
 - What assumptions are needed in each of these models?  
 - Are these assumptions reasonable in the current context?
+
+```{r}
+fixed_effect_model = plm(
+  total_fatalities_rate ~ factor(year) + blood_alcohol_limit + per_se_law +
+    seatbelt + speed_limit_70plus + graduated_drivers_license_law + perc14_24 +
+    log_umeployment_rate + log_vehicle_miles_per_capita,
+  data = data_clean, index=c("state","year"), model="within"
+)
+summary(fixed_effect_model)
+```
+
 
 # (10 points) Consider a Random Effects Model 
 
