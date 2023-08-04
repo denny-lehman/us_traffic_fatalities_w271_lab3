@@ -14,6 +14,8 @@ library(gridExtra)
 library(plm)
 library(knitr)
 library(patchwork)
+library(lubridate)
+library(tsibble)
 ```
 
 
@@ -51,7 +53,7 @@ data_clean <- data %>% mutate(
   year_of_observation = as.numeric(year_of_observation),
   blood_alcohol_limit = factor(round(bac10)*2 + round(bac08) * 1),
   state=factor(state),
-  seatbelt=factor(seatbelt),
+  seat_belt=factor(seatbelt),
   per_se_law = factor(round(perse)),
   speed_limit_70plus=factor(round(sl70plus)),
   graduated_drivers_license_law = factor(round(gdl)),
@@ -174,11 +176,12 @@ My way of adding variables related to the following concepts: (some of the vaira
 - Unemployment rate: use the *unem* **after log transformation**
 - Vehicle miles driven per capita: log(vehicmiles/statepop)
 ```{r}
-expanded_model = lm(
+expanded_model = plm(
   total_fatalities_rate ~ factor(year) + blood_alcohol_limit + per_se_law +
-    seatbelt + speed_limit_70plus + graduated_drivers_license_law + perc14_24 +
+    seat_belt + speed_limit_70plus + graduated_drivers_license_law + perc14_24 +
     log_umeployment_rate + log_vehicle_miles_per_capita,
-  data = data_clean
+  data = data_clean,index = c("state", "year"),
+  model = "pooling"
 )
 summary(expanded_model)
 ```
@@ -198,14 +201,52 @@ Which set of estimates do you think is more reliable? Why do you think this?
 - What assumptions are needed in each of these models?  
 - Are these assumptions reasonable in the current context?
 
+## Answer:
+
+From the comparison below we can see:
+
+1. The coefficients for *blood alcohol limit* X for limit at 0.08 and X for limit at 0.1. They are less negative in the FE model than in the pooled OLS, although still significant at 1% level.
+
+2. The coefficient for *per se law* is X, which is more negative and significant in the FE model, suggesting they are more effective in reducing the fatalities rate.
+
+3. The coefficient for *primary seat belt law* is X, which is also more negative and significant in the FE model, implying the same as above.
+
 ```{r}
 fixed_effect_model = plm(
   total_fatalities_rate ~ factor(year) + blood_alcohol_limit + per_se_law +
-    seatbelt + speed_limit_70plus + graduated_drivers_license_law + perc14_24 +
+    seat_belt + speed_limit_70plus + graduated_drivers_license_law + perc14_24 +
     log_umeployment_rate + log_vehicle_miles_per_capita,
-  data = data_clean, index=c("state","year"), model="within"
+  data = data_clean,
+  index = c("state", "year"),
+  model = "within"
 )
-summary(fixed_effect_model)
+stargazer(
+  expanded_model,
+  fixed_effect_model,
+  type = "text",
+  keep = c("blood_alcohol_limit", "per_se", "seatbelt"),
+  column.labels = c("Pooled", "Fixed Effect")
+)
+```
+
+For pooled OLS to be the appropriate estimator, we need to assume:
+
+1- **Linearity**: the model is linear in parameters
+
+2- **i.i.d.** : The observations are independent across individuals but not necessarily across time. This is guaranteed by random sampling of individuals.
+
+3- **Indentifiability**: the regressors, including a constant, are not perfectly collinear, and all regressors (but the constant) have non-zero variance and not too many extreme values.
+
+4- the independent variables is uncorrelated with idiosyncratic error term and individual-specific effect.
+
+The pooled OLS estimator is consistent under assumptions 1-4. We also need to assume **homoskedasticity** and **no serial correlation** in the data to do inference based on the conventional OLS estimator of the covariance matrix.
+
+The main issues of pooled OLS is when the unobserved individual-specific effects are correlated with the independent variables, the model will suffer from an omitted variable bias. In this case, the fixed effect(FE) model is preferred because it eliminates the unobserved time-invariant effects by de-mean procedures. The rest of the assumptions are the same.
+
+We can run a test to see whether the pooled OLS model is better than the FE model as below. The null hypothesis is rejected, suggesting the significance of individual fixed effects. **Therefore, the FE model provides better estimates**.
+
+```{r}
+pFtest(fixed_effect_model, expanded_model)
 ```
 
 
@@ -216,6 +257,48 @@ Instead of estimating a fixed effects model, should you have estimated a random 
 - Please state the assumptions of a random effects model, and evaluate whether these assumptions are met in the data. 
 - If the assumptions are, in fact, met in the data, then estimate a random effects model and interpret the coefficients of this model. Comment on how, if at all, the estimates from this model have changed compared to the fixed effects model. 
 - If the assumptions are **not** met, then do not estimate the data. But, also comment on what the consequences would be if you were to *inappropriately* estimate a random effects model. Would your coefficient estimates be biased or not? Would your standard error estimates be biased or not? Or, would there be some other problem that might arise?
+
+## Answer:
+
+The random effects model needs to assume the time-invariant unobserved effect is uncorrelated with the explanatory variables. This can be tested with a Hausman test as below. We fail to reject the null hypothesis, suggesting the random effects model is consistent.
+
+```{r}
+random_effect_model = plm(
+  total_fatalities_rate ~ factor(year) + blood_alcohol_limit + per_se_law +
+    seat_belt + speed_limit_70plus + graduated_drivers_license_law + perc14_24 +
+    log_umeployment_rate + log_vehicle_miles_per_capita,
+  data = data_clean,
+  index = c("state", "year"),
+  model = "random"
+)
+phtest(fixed_effect_model,random_effect_model)
+
+# summary(fixed_effect_model)
+
+```
+We estimate the random effect(RE) model and compare it with the other two as below. We can see **the coefficients of the variables that we are interested in from the RE model are very close to those from the FE model**. 
+
+The interpretations are:
+
+1. blood alcohol limit: the coefficients of blood_alcohol_limit=1 and blood_alcohol_limit=2 are X and Y respectively, meaning compared with no limit, the 0.08 limit reduce the total fatalities rate by X percentage point and the 0.1 limit reduce the total fatalities rate by X percentage point. These effect are both economically and statistically significant.
+
+2. the coefficients *per se law * is X, significant at 1% level, suggesting the per se law helps reduce the total fatalities rate by X percentage point.
+
+3. the coefficient of *seat_belt=1* is X, significant at 1% level, suggesting the primary seat belt law helps reduce the total fatalities rate by X percentage point. However, the coefficient of *seat_belt=2* is insignificant, suggesting the secondary seat belt law is not effective in reducing the total fatalities rate.
+
+4. the coefficients *log_vehicle_miles_per_capita* is X, significant at 1% level, suggesting a unit increase of the *log_vehicle_miles_per_capita* may lead to X percentage point increase of the total fatalities rate. 
+
+```{r}
+stargazer(
+  expanded_model,
+  fixed_effect_model,
+  random_effect_model,
+  type = "text",
+  keep = c("blood_alcohol_limit", "per_se", "seatbelt","log_vehicle_miles_per_capita"),
+  column.labels = c("Pooled", "Fixed Effect", "Random Effect")
+)
+```
+
 
 # (10 points) Model Forecasts 
 
@@ -230,6 +313,99 @@ Now, use these changes in driving to make forecasts from your models.
 - Suppose that the number of miles driven per capita, increased by as much as the COVID boom. Using the FE estimates, what would the consequences be on the number of traffic fatalities? Please interpret the estimate.
 - Suppose that the number of miles driven per capita, decreased by as much as the COVID bust. Using the FE estimates, what would the consequences be on the number of traffic fatalities? Please interpret the estimate.
 
+## answer
+
+We download both the monthly *Vehicle Miles Traveled* and *Population* data of the U.S. from [FRED](https://fred.stlouisfed.org/) and use their ratio as the vehicle miles driven per capita, as below. The time series plot shows it has strong seasonality and changed dramatically during the pandemic.
+
+```{r}
+if(!"fredr"%in%rownames(installed.packages())) {install.packages("fredr")}
+library(fredr)
+fredr_set_key("cd565a10e83d56f9f1150d5a2c067e2a")
+# Vehicle Miles Traveled are in Millions of Miles, Not Seasonally Adjusted
+vmt=fredr(
+  series_id = "TRFVOLUSM227NFWA",
+  observation_start = as.Date("1990-01-01"),
+  observation_end = as.Date("2023-05-01")
+) %>% dplyr::select(date,value) %>% as_tsibble(index=date)
+
+# population are in Thousands, Not Seasonally Adjusted
+us_pop=fredr(
+  series_id = "POPTHM",
+  observation_start = as.Date("1990-01-01"),
+  observation_end = as.Date("2023-05-01")
+)%>% dplyr::select(date,value) %>% as_tsibble(index=date)
+# vmt_per_capita are in miles per capita
+vmt_per_capita <- vmt %>% mutate(value=value/us_pop$value*1000,date=yearmonth(date)) %>% 
+  rename(vehicle_miles_per_capita=value)
+vmt_per_capita %>% ggplot(aes(x=date,y=vehicle_miles_per_capita))+geom_line()
+```
+
+We compare monthly miles driven during pandemic with the same month of 2018. As the table and plot below show:
+
+  - Apr 2020 demonstrated the largest decrease in driving by 39.69% 
+  - Sep 2022 demonstrated the largest increase in driving by 0.69% 
+
+
+```{r}
+vmt_pivot = vmt_per_capita %>% mutate(year = year(date), month = month(date)) %>% as_tibble() %>%
+  pivot_wider(id_cols = -date,
+              names_from = year,
+              values_from = vehicle_miles_per_capita)
+comparison = vmt_pivot %>% mutate(
+  d2020 = 100 * (.data[["2020"]] / .data[["2018"]] - 1),
+  d2021 = 100 * (.data[["2021"]] / .data[["2018"]] - 1),
+  d2022 = 100 * (.data[["2022"]] / .data[["2018"]] - 1),
+  d2023 = 100 * (.data[["2023"]] / .data[["2018"]] - 1),
+) %>% dplyr::select(month, d2020, d2021, d2022, d2023)
+kable(comparison, digits = 2, caption = "change over the same month of 2018 (%)")
+comparison %>% pivot_longer(cols = c(d2020, d2021, d2022, d2023)) %>%
+  ggplot(aes(x = month, y = value, color = name)) + geom_line()
+```
+
+In FE model, the coefficient of *log_vehicle_miles_per_capita* is X, based on this number and some calculation, we can estimate the consequences be on the number of traffic fatalities as below:
+
+```{r}
+comparison_log = vmt_pivot %>% mutate(
+  d2020 = log(.data[["2020"]]) - log(.data[["2018"]] ),
+  d2021 = log(.data[["2021"]]) - log(.data[["2018"]] ),
+  d2022 = log(.data[["2022"]]) - log(.data[["2018"]] ),
+  d2023 = log(.data[["2023"]]) - log(.data[["2018"]] ),
+)%>% dplyr::select(month, d2020, d2021, d2022, d2023)
+result=data.frame(
+  scenario=c("boom","bust"),
+  time=c("2022M09","2020M04"),
+  change_in_log_vmt_per_capita=c(comparison_log[9,"d2022"],comparison_log[4,"d2020"]),
+  pop
+) %>% mutate(change_in_total_fatalities_rate=change_in_log_vmt_per_capita*14.704) # need to revise
+
+
+```
+
+
 # (5 points) Evaluate Error 
 
 If there were serial correlation or heteroskedasticity in the idiosyncratic errors of the model, what would be the consequences on the estimators and their standard errors? Is there any serial correlation or heteroskedasticity? 
+
+## answer
+
+Serial correlation or heteroskedasticity will not influence the consistence of the estimators but will lead to inaccurate estimate of their standard errors.
+
+We can use Breusch Pagan test for heteroskedasticity. As shown below, the tests for all the three models reject the null hypothesis of homoskedasticity, in favor of heteroskedasticity.
+
+```{r}
+pcdtest(expanded_model, test = "lm")
+pcdtest(fixed_effect_model, test = "lm")
+pcdtest(random_effect_model, test = "lm")
+```
+
+We perform both Durbin Watson test and Breusch-Godfrey test for each model. As shown below, both tests suggest serial correlation in errors for all three models.
+
+```{r}
+pdwtest(expanded_model)
+pbgtest(expanded_model, order = 2)
+pdwtest(fixed_effect_model)
+pbgtest(fixed_effect_model, order = 2)
+pdwtest(random_effect_model)
+pbgtest(random_effect_model, order = 2)
+```
+
