@@ -5,7 +5,7 @@ output:
   bookdown::pdf_document2: default
 ---
 
-```{r load packages, echo=FALSE, message=FALSE}
+```{r load packages,  message=FALSE}
 library(tidyverse)
 library(ggrepel)
 library(ggthemes)
@@ -13,6 +13,9 @@ library(stargazer)
 library(gridExtra)
 library(plm)
 library(knitr)
+library(patchwork)
+library(lubridate)
+library(tsibble)
 ```
 
 
@@ -43,19 +46,23 @@ desc
     - Produce a new variable for each of the other variables that are one-hot encoded (i.e. `bac*` variable series). 
     - Rename these variables to sensible names that are legible to a reader of your analysis. For example, the dependent variable as provided is called, `totfatrte`. Pick something more sensible, like, `total_fatalities_rate`. There are few enough of these variables to change, that you should change them for all the variables in the data. (You will thank yourself later.)
     
-```{r,echo=FALSE,  warning=FALSE, message=FALSE, fig.height=3}
+```{r,  warning=FALSE, message=FALSE, fig.height=3}
 year_of_observation = as.matrix(data[match("d80", colnames(data)):match("d04", colnames(data))]) %*% c(1980:2004)
 data_clean <- data %>% mutate(
   speed_limit = sl55 * 55 + sl65 * 65 + sl70 * 70 + sl75 * 75 + slnone * 100,# assuming 100 for no speed limit
-  year_of_observation = year_of_observation,
-  blood_alcohol_limit = bac10 * 0.1 + bac08 * 0.08,
-  state=factor(state) 
+  year_of_observation = as.numeric(year_of_observation),
+  blood_alcohol_limit = factor(round(bac10)*2 + round(bac08) * 1),
+  state=factor(state),
+  seat_belt=factor(seatbelt),
+  per_se_law = factor(round(perse)),
+  speed_limit_70plus=factor(round(sl70plus)),
+  graduated_drivers_license_law = factor(round(gdl)),
+  log_umeployment_rate=log(unem),
+  log_total_fatalities_rate=log(totfatrte),
+  log_vehicle_miles_per_capita=log(vehicmiles/statepop)
 ) %>% rename(
   total_fatalities_rate = totfatrte,
-  unemployment_rate = unem,
-  zero_tolerance_law = zerotol,
-  graduated_drivers_license_law = gdl,
-  per_se_law = perse)
+  zero_tolerance_law = zerotol)
 # ) %>% dplyr::select(
 #   year,
 #   state,
@@ -75,37 +82,39 @@ data_clean <- data %>% mutate(
     
 2. (5 points) Provide a description of the basic structure of the dataset. What is this data? How, where, and when is it collected? Is the data generated through a survey or some other method? Is the data that is presented a sample from the population, or is it a *census* that represents the entire population? Minimally, this should include:
     - How is the our dependent variable of interest `total_fatalities_rate` defined? 
+    
+    <!-- total traffic fatalities divided by state population -->
+    
 3. (20 points) Conduct a very thorough EDA, which should include both graphical and tabular techniques, on the dataset, including both the dependent variable `total_fatalities_rate` and the potential explanatory variables. Minimally, this should include: 
     - How is the our dependent variable of interest `total_fatalities_rate` defined? 
     - What is the average of `total_fatalities_rate` in each of the years in the time period covered in this dataset? 
 
-```{r,echo=FALSE,  warning=FALSE, message=FALSE, fig.height=4}
+
+```{r, warning=FALSE, message=FALSE, fig.height=4}
 # boxplot over time
-data_clean %>% ggplot(aes(reorder(state,desc(total_fatalities_rate)),total_fatalities_rate,
+data_clean %>% ggplot(aes(reorder(state,desc(log_total_fatalities_rate)),log_total_fatalities_rate,
              fill=state)) +
   geom_boxplot(alpha=0.4) +
   # theme_economist_white(gray_bg=F) +
   theme(legend.position="none",axis.text.y=element_text(size=6)) +
   scale_y_continuous() +
   xlab("State") +
-  ylab("Total_Fatalities_Rate") +
+  ylab("Log Total Fatalities Rate") +
   coord_flip()
 
 # lineplot over time
 data_clean %>%
-  ggplot(aes(year,total_fatalities_rate,color=state)) +
+  ggplot(aes(year,log_total_fatalities_rate,color=state)) +
   geom_point(alpha=0.4) +
   geom_smooth(method="lm") +
-  facet_wrap(~state,scales="free_y") +
-  theme_economist_white(gray_bg=F) +
+  facet_wrap(~state,scales = "free_y") +
   theme(legend.position="none",axis.text.x=element_text(angle=45,hjust=1,vjust=1,size=6),
         axis.text.y=element_text(size=6)) +
   theme(strip.text=element_text(size=4)) +
   scale_y_continuous() +
   xlab("State") +
-  ylab("Total_Fatalities_Rate")
+  ylab("Log Total Fatalities Rate")
 ```
-
 
 
 As with every EDA this semester, the goal of this EDA is not to document your own process of discovery -- save that for an exploration notebook -- but instead it is to bring a reader that is new to the data to a full understanding of the important features of your data as quickly as possible. In order to do this, your EDA should include a detailed, orderly narrative description of what you want your reader to know. Do not include any output -- tables, plots, or statistics -- that you do not intend to write about.
@@ -113,15 +122,19 @@ As with every EDA this semester, the goal of this EDA is not to document your ow
 # (15 points) Preliminary Model
 
 Estimate a linear regression model of *totfatrte* on a set of dummy variables for the years 1981 through 2004 and interpret what you observe. In this section, you should address the following tasks: 
-<!-- what does  -->
 - Why is fitting a linear model a sensible starting place? 
-<!--change gradually from previous year -->
+<!--From the eda we can see the log_total_fatalities_rate changes linearly over time. -->
 - What does this model explain, and what do you find in this model? 
+<!-- It explains on average for all states, how did log_total_fatalities_rate changes each year.  -->
 - Did driving become safer over this period? Please provide a detailed explanation.
+<!-- Yes, because all the coefficients of dummy variables for years are negative and significant at 1% level. -->
 - What, if any, are the limitation of this model. In answering this, please consider **at least**: 
     - Are the parameter estimates reliable, unbiased estimates of the truth? Or, are they biased due to the way that the data is structured?
     - Are the uncertainty estimate reliable, unbiased estimates of sampling based variability? Or, are they biased due to the way that the data is structured? 
-  
+    
+<!-- 1) may suffer from omitted variable effect; 2) serial correlation may cause false variance estimation; 3) cannot answer the question of causality -->
+    
+    
 > Linear models are a sensible place to start because they are simple and easy to interpret (see week 11 intro slides)
 
 > This model describes the total fatality rate conditional on the year the driving occured. Each year acts as a dummy variable that changes the expected total fatality rate. Adding the coefficient of the year to the intercept gives the expected fatality rate for that year. For example
@@ -133,20 +146,10 @@ $$ total fatality rate_{1981} = \beta_0 + \beta_{1981} * 1 + \beta_{1982} * 0  $
 > linear models, they are not reliable with panel data because they violate iid. for example the state variable represents the location in the US that the drivers are in. the state is repeated across years
 > pooled data (not independent) has to do with the way the data is strucutured not the sampling variability
 
-```{r}
-data_clean
-names(data_clean)
-mod <- lm(total_fatalities_rate ~ d80 + d81 + d82 + d83 + d84 + d85 +d86 + d87 + 
-            d88 + d89 + d90 + d91 + d92 + d93 + d94 +d95 + d96 + d97 + d98 +
-            d99 + d00 + d01 +d02 + d03, data = data_clean)
-summary(mod)
-# make sure year is a factor, not int
-```
 
 ```{r}
-# alternative model recommended by scott  because it's easier
-# mod2 <- lm(totfatrte ~ factor(year), data=data)
-# summary(mod2)
+preliminary_model  <- lm(log_total_fatalities_rate ~ factor(year), data = data_clean)
+summary(preliminary_model)
 ```
 
 
@@ -237,8 +240,32 @@ If it is appropriate, include transformations of these variables. Please careful
 - Do *per se laws* have a negative effect on the fatality rate? 
 - Does having a primary seat belt law? 
 
+**Answer**
+
+My way of adding variables related to the following concepts: (some of the vairables need log transformation because they are skewed)
+
+- Blood alcohol levels: as we talked about
+- Per se laws: similarly, round and factor 
+- Primary seat belt laws (Note that if a law was enacted sometime within a year the fraction of the year is recorded in place of the zero-one indicator.): actually there's no fractional number, so we can just factorize the *seatbelt* variable.
+- Secondary seat belt laws: combined with the primary seat belt laws.
+- Speed limits faster than 70: round and factorize the vairable *sl70plus*
+- Graduated drivers licenses: round and factorize the vairable *gdl*
+- Percent of the population between 14 and 24 years old: just use the variable *perc14_24*
+- Unemployment rate: use the *unem* **after log transformation**
+- Vehicle miles driven per capita: log(vehicmiles/statepop)
+```{r}
+expanded_model = plm(
+  total_fatalities_rate ~ factor(year) + blood_alcohol_limit + per_se_law +
+    seat_belt + speed_limit_70plus + graduated_drivers_license_law + perc14_24 +
+    log_umeployment_rate + log_vehicle_miles_per_capita,
+  data = data_clean,index = c("state", "year"),
+  model = "pooling"
+)
+summary(expanded_model)
+```
 > Blood alcohol variables describe the legal blood alcohol content (BAC) is for a driver. If the Driver's BAC is over the legal limit, then they are illegally driving while intoxicated. There are two columns in the driving dataset, bac08 and bac10. The bac08 variable describes if the state had a 0.08 BAC limit that year, with 0 being no law and 1 meaning having a law. If the law went into effect for a partial year, then the value is factional for the amount of time it was in effect (a law starting in June would have 6/12 months = 0.5 value). The feature bac10 has the same properties - the value is the fractional amount of time the law was in effect that year (0 not in effect, 1 in effect). 
 We engineer these features using rounding such that our new feature shows if the BAC law was effective for a majority of the year.
+
 
 # (15 points) State-Level Fixed Effects 
 
@@ -253,6 +280,55 @@ Which set of estimates do you think is more reliable? Why do you think this?
 - What assumptions are needed in each of these models?  
 - Are these assumptions reasonable in the current context?
 
+## Answer:
+
+From the comparison below we can see:
+
+1. The coefficients for *blood alcohol limit* X for limit at 0.08 and X for limit at 0.1. They are less negative in the FE model than in the pooled OLS, although still significant at 1% level.
+
+2. The coefficient for *per se law* is X, which is more negative and significant in the FE model, suggesting they are more effective in reducing the fatalities rate.
+
+3. The coefficient for *primary seat belt law* is X, which is also more negative and significant in the FE model, implying the same as above.
+
+```{r}
+fixed_effect_model = plm(
+  total_fatalities_rate ~ factor(year) + blood_alcohol_limit + per_se_law +
+    seat_belt + speed_limit_70plus + graduated_drivers_license_law + perc14_24 +
+    log_umeployment_rate + log_vehicle_miles_per_capita,
+  data = data_clean,
+  index = c("state", "year"),
+  model = "within"
+)
+stargazer(
+  expanded_model,
+  fixed_effect_model,
+  type = "text",
+  keep = c("blood_alcohol_limit", "per_se", "seatbelt"),
+  column.labels = c("Pooled", "Fixed Effect")
+)
+```
+
+For pooled OLS to be the appropriate estimator, we need to assume:
+
+1- **Linearity**: the model is linear in parameters
+
+2- **i.i.d.** : The observations are independent across individuals but not necessarily across time. This is guaranteed by random sampling of individuals.
+
+3- **Indentifiability**: the regressors, including a constant, are not perfectly collinear, and all regressors (but the constant) have non-zero variance and not too many extreme values.
+
+4- the independent variables is uncorrelated with idiosyncratic error term and individual-specific effect.
+
+The pooled OLS estimator is consistent under assumptions 1-4. We also need to assume **homoskedasticity** and **no serial correlation** in the data to do inference based on the conventional OLS estimator of the covariance matrix.
+
+The main issues of pooled OLS is when the unobserved individual-specific effects are correlated with the independent variables, the model will suffer from an omitted variable bias. In this case, the fixed effect(FE) model is preferred because it eliminates the unobserved time-invariant effects by de-mean procedures. The rest of the assumptions are the same.
+
+We can run a test to see whether the pooled OLS model is better than the FE model as below. The null hypothesis is rejected, suggesting the significance of individual fixed effects. **Therefore, the FE model provides better estimates**.
+
+```{r}
+pFtest(fixed_effect_model, expanded_model)
+```
+
+
 # (10 points) Consider a Random Effects Model 
 
 Instead of estimating a fixed effects model, should you have estimated a random effects model?
@@ -260,6 +336,48 @@ Instead of estimating a fixed effects model, should you have estimated a random 
 - Please state the assumptions of a random effects model, and evaluate whether these assumptions are met in the data. 
 - If the assumptions are, in fact, met in the data, then estimate a random effects model and interpret the coefficients of this model. Comment on how, if at all, the estimates from this model have changed compared to the fixed effects model. 
 - If the assumptions are **not** met, then do not estimate the data. But, also comment on what the consequences would be if you were to *inappropriately* estimate a random effects model. Would your coefficient estimates be biased or not? Would your standard error estimates be biased or not? Or, would there be some other problem that might arise?
+
+## Answer:
+
+The random effects model needs to assume the time-invariant unobserved effect is uncorrelated with the explanatory variables. This can be tested with a Hausman test as below. We fail to reject the null hypothesis, suggesting the random effects model is consistent.
+
+```{r}
+random_effect_model = plm(
+  total_fatalities_rate ~ factor(year) + blood_alcohol_limit + per_se_law +
+    seat_belt + speed_limit_70plus + graduated_drivers_license_law + perc14_24 +
+    log_umeployment_rate + log_vehicle_miles_per_capita,
+  data = data_clean,
+  index = c("state", "year"),
+  model = "random"
+)
+phtest(fixed_effect_model,random_effect_model)
+
+# summary(fixed_effect_model)
+
+```
+We estimate the random effect(RE) model and compare it with the other two as below. We can see **the coefficients of the variables that we are interested in from the RE model are very close to those from the FE model**. 
+
+The interpretations are:
+
+1. blood alcohol limit: the coefficients of blood_alcohol_limit=1 and blood_alcohol_limit=2 are X and Y respectively, meaning compared with no limit, the 0.08 limit reduce the total fatalities rate by X percentage point and the 0.1 limit reduce the total fatalities rate by X percentage point. These effect are both economically and statistically significant.
+
+2. the coefficients *per se law * is X, significant at 1% level, suggesting the per se law helps reduce the total fatalities rate by X percentage point.
+
+3. the coefficient of *seat_belt=1* is X, significant at 1% level, suggesting the primary seat belt law helps reduce the total fatalities rate by X percentage point. However, the coefficient of *seat_belt=2* is insignificant, suggesting the secondary seat belt law is not effective in reducing the total fatalities rate.
+
+4. the coefficients *log_vehicle_miles_per_capita* is X, significant at 1% level, suggesting a unit increase of the *log_vehicle_miles_per_capita* may lead to X percentage point increase of the total fatalities rate. 
+
+```{r}
+stargazer(
+  expanded_model,
+  fixed_effect_model,
+  random_effect_model,
+  type = "text",
+  keep = c("blood_alcohol_limit", "per_se", "seatbelt","log_vehicle_miles_per_capita"),
+  column.labels = c("Pooled", "Fixed Effect", "Random Effect")
+)
+```
+
 
 # (10 points) Model Forecasts 
 
@@ -274,6 +392,99 @@ Now, use these changes in driving to make forecasts from your models.
 - Suppose that the number of miles driven per capita, increased by as much as the COVID boom. Using the FE estimates, what would the consequences be on the number of traffic fatalities? Please interpret the estimate.
 - Suppose that the number of miles driven per capita, decreased by as much as the COVID bust. Using the FE estimates, what would the consequences be on the number of traffic fatalities? Please interpret the estimate.
 
+## answer
+
+We download both the monthly *Vehicle Miles Traveled* and *Population* data of the U.S. from [FRED](https://fred.stlouisfed.org/) and use their ratio as the vehicle miles driven per capita, as below. The time series plot shows it has strong seasonality and changed dramatically during the pandemic.
+
+```{r}
+if(!"fredr"%in%rownames(installed.packages())) {install.packages("fredr")}
+library(fredr)
+fredr_set_key("cd565a10e83d56f9f1150d5a2c067e2a")
+# Vehicle Miles Traveled are in Millions of Miles, Not Seasonally Adjusted
+vmt=fredr(
+  series_id = "TRFVOLUSM227NFWA",
+  observation_start = as.Date("1990-01-01"),
+  observation_end = as.Date("2023-05-01")
+) %>% dplyr::select(date,value) %>% as_tsibble(index=date)
+
+# population are in Thousands, Not Seasonally Adjusted
+us_pop=fredr(
+  series_id = "POPTHM",
+  observation_start = as.Date("1990-01-01"),
+  observation_end = as.Date("2023-05-01")
+)%>% dplyr::select(date,value) %>% as_tsibble(index=date)
+# vmt_per_capita are in miles per capita
+vmt_per_capita <- vmt %>% mutate(value=value/us_pop$value*1000,date=yearmonth(date)) %>% 
+  rename(vehicle_miles_per_capita=value)
+vmt_per_capita %>% ggplot(aes(x=date,y=vehicle_miles_per_capita))+geom_line()
+```
+
+We compare monthly miles driven during pandemic with the same month of 2018. As the table and plot below show:
+
+  - Apr 2020 demonstrated the largest decrease in driving by 39.69% 
+  - Sep 2022 demonstrated the largest increase in driving by 0.69% 
+
+
+```{r}
+vmt_pivot = vmt_per_capita %>% mutate(year = year(date), month = month(date)) %>% as_tibble() %>%
+  pivot_wider(id_cols = -date,
+              names_from = year,
+              values_from = vehicle_miles_per_capita)
+comparison = vmt_pivot %>% mutate(
+  d2020 = 100 * (.data[["2020"]] / .data[["2018"]] - 1),
+  d2021 = 100 * (.data[["2021"]] / .data[["2018"]] - 1),
+  d2022 = 100 * (.data[["2022"]] / .data[["2018"]] - 1),
+  d2023 = 100 * (.data[["2023"]] / .data[["2018"]] - 1),
+) %>% dplyr::select(month, d2020, d2021, d2022, d2023)
+kable(comparison, digits = 2, caption = "change over the same month of 2018 (%)")
+comparison %>% pivot_longer(cols = c(d2020, d2021, d2022, d2023)) %>%
+  ggplot(aes(x = month, y = value, color = name)) + geom_line()
+```
+
+In FE model, the coefficient of *log_vehicle_miles_per_capita* is X, based on this number and some calculation, we can estimate the consequences be on the number of traffic fatalities as below:
+
+```{r}
+comparison_log = vmt_pivot %>% mutate(
+  d2020 = log(.data[["2020"]]) - log(.data[["2018"]] ),
+  d2021 = log(.data[["2021"]]) - log(.data[["2018"]] ),
+  d2022 = log(.data[["2022"]]) - log(.data[["2018"]] ),
+  d2023 = log(.data[["2023"]]) - log(.data[["2018"]] ),
+)%>% dplyr::select(month, d2020, d2021, d2022, d2023)
+result=data.frame(
+  scenario=c("boom","bust"),
+  time=c("2022M09","2020M04"),
+  change_in_log_vmt_per_capita=c(comparison_log[9,"d2022"],comparison_log[4,"d2020"]),
+  pop
+) %>% mutate(change_in_total_fatalities_rate=change_in_log_vmt_per_capita*14.704) # need to revise
+
+
+```
+
+
 # (5 points) Evaluate Error 
 
 If there were serial correlation or heteroskedasticity in the idiosyncratic errors of the model, what would be the consequences on the estimators and their standard errors? Is there any serial correlation or heteroskedasticity? 
+
+## answer
+
+Serial correlation or heteroskedasticity will not influence the consistence of the estimators but will lead to inaccurate estimate of their standard errors.
+
+We can use Breusch Pagan test for heteroskedasticity. As shown below, the tests for all the three models reject the null hypothesis of homoskedasticity, in favor of heteroskedasticity.
+
+```{r}
+pcdtest(expanded_model, test = "lm")
+pcdtest(fixed_effect_model, test = "lm")
+pcdtest(random_effect_model, test = "lm")
+```
+
+We perform both Durbin Watson test and Breusch-Godfrey test for each model. As shown below, both tests suggest serial correlation in errors for all three models.
+
+```{r}
+pdwtest(expanded_model)
+pbgtest(expanded_model, order = 2)
+pdwtest(fixed_effect_model)
+pbgtest(fixed_effect_model, order = 2)
+pdwtest(random_effect_model)
+pbgtest(random_effect_model, order = 2)
+```
+
