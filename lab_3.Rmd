@@ -280,7 +280,7 @@ If it is appropriate, include transformations of these variables. Please careful
 - Do *per se laws* have a negative effect on the fatality rate? 
 - Does having a primary seat belt law? 
 
-## Answer
+**Answer**
 
 My way of adding variables related to the following concepts: (some of the vairables need log transformation because they are skewed)
 
@@ -295,20 +295,11 @@ My way of adding variables related to the following concepts: (some of the vaira
 - Vehicle miles driven per capita: log(vehicmiles/statepop)
 ```{r}
 expanded_model = plm(
-  log(total_fatalities_rate) ~ factor(year) + blood_alcohol_limit + per_se_law +
+  total_fatalities_rate ~ factor(year) + blood_alcohol_limit + per_se_law +
     seat_belt + speed_limit_70plus + graduated_drivers_license_law + perc14_24 +
     log_umeployment_rate + log_vehicle_miles_per_capita,
-  data = data_clean,
-  index = c("state", "year"),
+  data = data_clean,index = c("state", "year"),
   model = "pooling"
-
-)
-expanded_model = lm(
-  log(total_fatalities_rate) ~ factor(year) + blood_alcohol_limit + per_se_law +
-    seat_belt + speed_limit_70plus + graduated_drivers_license_law + perc14_24 +
-    log_umeployment_rate + log_vehicle_miles_per_capita,
-  data = data_clean
-
 )
 summary(expanded_model)
 ```
@@ -341,7 +332,7 @@ From the comparison below we can see:
 
 ```{r}
 fixed_effect_model = plm(
-  log(total_fatalities_rate) ~ factor(year) + blood_alcohol_limit + per_se_law +
+  total_fatalities_rate ~ factor(year) + blood_alcohol_limit + per_se_law +
     seat_belt + speed_limit_70plus + graduated_drivers_license_law + perc14_24 +
     log_umeployment_rate + log_vehicle_miles_per_capita,
   data = data_clean,
@@ -352,7 +343,7 @@ stargazer(
   expanded_model,
   fixed_effect_model,
   type = "text",
-  keep = c("blood_alcohol_limit", "per_se", "seat_belt"),
+  keep = c("blood_alcohol_limit", "per_se", "seatbelt"),
   column.labels = c("Pooled", "Fixed Effect")
 )
 ```
@@ -392,7 +383,7 @@ The random effects model needs to assume the time-invariant unobserved effect is
 
 ```{r}
 random_effect_model = plm(
-  log(total_fatalities_rate) ~ factor(year) + blood_alcohol_limit + per_se_law +
+  total_fatalities_rate ~ factor(year) + blood_alcohol_limit + per_se_law +
     seat_belt + speed_limit_70plus + graduated_drivers_license_law + perc14_24 +
     log_umeployment_rate + log_vehicle_miles_per_capita,
   data = data_clean,
