@@ -134,7 +134,18 @@ Estimate a linear regression model of *totfatrte* on a set of dummy variables fo
     
 <!-- 1) may suffer from omitted variable effect; 2) serial correlation may cause false variance estimation; 3) cannot answer the question of causality -->
     
-  
+    
+> Linear models are a sensible place to start because they are simple and easy to interpret (see week 11 intro slides)
+
+> This model describes the total fatality rate conditional on the year the driving occured. Each year acts as a dummy variable that changes the expected total fatality rate. Adding the coefficient of the year to the intercept gives the expected fatality rate for that year. For example
+
+$$ total fatality rate_{1981} = \beta_0 + \beta_{1981} * 1 + \beta_{1982} * 0  $$ 
+
+> The model suggest that driving got safer over the period. The estimates for years in the in 1980 and 1981 have estimates of 8 and 6 which represent that the fatality rate increases during these years. Most years in the 80s have positive significant estimates 
+
+> linear models, they are not reliable with panel data because they violate iid. for example the state variable represents the location in the US that the drivers are in. the state is repeated across years
+> pooled data (not independent) has to do with the way the data is strucutured not the sampling variability
+
 
 ```{r}
 preliminary_model  <- lm(log_total_fatalities_rate ~ factor(year), data = data_clean)
@@ -146,6 +157,11 @@ summary(preliminary_model)
 
 Expand the **Preliminary Model** by adding variables related to the following concepts: 
 
+> consider when laws were passed, if eda shows groupings of states, years, and laws, and consider alpha corrections, like bonferoni
+> do stargazer on simple model, full model, best fit model using anova
+> discuss significance, and parameter values
+> refactor bac into one variable, with 3 factors 0, 1, 2, with 0 as no law, 1 as bac08 law, 2 as bac10 law
+
 - Blood alcohol levels 
 - Per se laws
 - Primary seat belt laws (Note that if a law was enacted sometime within a year the fraction of the year is recorded in place of the zero-one indicator.)
@@ -155,6 +171,68 @@ Expand the **Preliminary Model** by adding variables related to the following co
 - Percent of the population between 14 and 24 years old
 - Unemployment rate
 - Vehicle miles driven per capita. 
+
+> Blood alcohol variables describe the legal blood alcohol content (BAC) is for a driver. If the Driver's BAC is over the legal limit, then they are illegally driving while intoxicated. There are two columns in the driving dataset, bac08 and bac10. The bac08 variable describes if the state had a 0.08 BAC limit that year, with 0 being no law and 1 meaning having a law. If the law went into effect for a partial year, then the value is factional for the amount of time it was in effect (a law starting in June would have 6/12 months = 0.5 value). The feature bac10 has the same properties - the value is the fractional amount of time the law was in effect that year (0 not in effect, 1 in effect). 
+We engineer these features using rounding such that our new feature shows if the BAC law was effective for a majority of the year.
+
+```{r convert bac08 and bac10}
+data_clean %>% 
+  mutate(
+    bac08_in_effect = round(bac08),
+    bac10_in_effect = round(bac10)
+  ) %>%
+  dplyr::select(-c(bac08, bac10)) -> data_clean_1
+
+mod2 <- lm(total_fatalities_rate ~ d80 + d81 + d82 + d83 + d84 + d85 +d86 + d87 + 
+            d88 + d89 + d90 + d91 + d92 + d93 + d94 +d95 + d96 + d97 + d98 +
+            d99 + d00 + d01 +d02 + d03 + 
+             bac08_in_effect + bac10_in_effect, data = data_clean_1)
+summary(mod2)
+
+mod3 <- lm(total_fatalities_rate ~ bac08_in_effect + bac10_in_effect, data = data_clean_1)
+summary(mod3)
+  
+
+```
+> Adding the BAC laws to the model, we see that adding a BAC08 law to the state has the average effect of lowering the total fatality rate by -1.95 all else equal. Adding a BAC10 law to the state lowers the total fatality rate by -1.63, all else equal.
+
+
+```{r eda on the variables will cut later}
+
+mod3 <- lm(total_fatalities_rate ~ unemployment_rate, data=data_clean)
+summary(mod3)
+
+example <- loess(total_fatalities_rate ~ unemployment_rate,data= data_clean)
+data_clean %>%
+ggplot() + geom_point(aes(unemployment_rate, total_fatalities_rate)) + geom_line(example)
+
+data_clean %>%
+  ggplot() + geom_histogram(aes(total_fatalities_rate))
+ggplot(data=data_clean, aes(x=unemployment_rate, y=total_fatalities_rate, col=sl55))+geom_point()+ 
+        stat_smooth()
+
+ggplot(data=data_clean, aes(x=unemployment_rate, y=total_fatalities_rate, col=state))+geom_point()+ 
+        stat_smooth()
+
+ggplot(data=data_clean, aes(x=unemployment_rate, y=total_fatalities_rate))+geom_point()+ 
+        stat_smooth()
+
+ggplot(data=data_clean, aes(x=unemployment_rate, y=total_fatalities_rate, col=bac08))+geom_point()+ 
+        stat_smooth(method = 'lm')
+
+# bac is continuous, but has so few distinct values that we can represent it as ordinal values
+ggplot(data=data_clean, aes(group=bac10, y=total_fatalities_rate))+geom_boxplot()
+ggplot(data=data_clean, aes(group=bac08, y=total_fatalities_rate))+geom_boxplot()
+
+ggplot(data=data_clean, aes(group=factor(seatbelt, levels =c("0","1","2")), y=total_fatalities_rate))+geom_boxplot()
+
+ggplot(data=data, aes(group=factor(year), y=totfatrte))+geom_boxplot()
+ggplot(data=data_clean, aes(group=factor(per_se_law), y=total_fatalities_rate))+geom_boxplot()
+
+plot(x=data_clean$unemployment_rate, y=data_clean$total_fatalities_rate, type="p")
+lines(example, x =data_clean$unemployment_rate )
+```
+
 
 If it is appropriate, include transformations of these variables. Please carefully explain carefully your rationale, which should be based on your EDA, behind any transformation you made. If no transformation is made, explain why transformation is not needed. 
 
@@ -194,7 +272,8 @@ expanded_model = lm(
 )
 summary(expanded_model)
 ```
-
+> Blood alcohol variables describe the legal blood alcohol content (BAC) is for a driver. If the Driver's BAC is over the legal limit, then they are illegally driving while intoxicated. There are two columns in the driving dataset, bac08 and bac10. The bac08 variable describes if the state had a 0.08 BAC limit that year, with 0 being no law and 1 meaning having a law. If the law went into effect for a partial year, then the value is factional for the amount of time it was in effect (a law starting in June would have 6/12 months = 0.5 value). The feature bac10 has the same properties - the value is the fractional amount of time the law was in effect that year (0 not in effect, 1 in effect). 
+We engineer these features using rounding such that our new feature shows if the BAC law was effective for a majority of the year.
 
 
 # (15 points) State-Level Fixed Effects 
