@@ -34,8 +34,8 @@ Specifically, this data set contains data for the 48 continental U.S. states fro
 load(file="./data/driving.RData")
 
 ## please comment these calls in your work 
-glimpse(data)
-desc
+# glimpse(data)
+# desc
 ```
 
 
@@ -48,15 +48,19 @@ desc
     - Rename these variables to sensible names that are legible to a reader of your analysis. For example, the dependent variable as provided is called, `totfatrte`. Pick something more sensible, like, `total_fatalities_rate`. There are few enough of these variables to change, that you should change them for all the variables in the data. (You will thank yourself later.)
     
 ```{r,  warning=FALSE, message=FALSE, fig.height=3}
-year_of_observation = as.matrix(data[match("d80", colnames(data)):match("d04", colnames(data))]) %*% c(1980:2004)
+year_of_observation = as.matrix(
+  data[match("d80", colnames(data)):match("d04", colnames(data))]
+  ) %*% c(1980:2004)
+
 data_clean <- data %>% mutate(
   year_of_observation = factor(as.numeric(year_of_observation)),
   year = factor(year),
   state = factor(state),
-
+  
   # laws
   speed_limit = factor(
-    round(sl55) * 55 + round(sl65) * 65 + round(sl70) * 70 + round(sl75) * 75 + round(slnone) * 100
+    round(sl55) * 55 + round(sl65) * 65 + round(sl70) * 70 + 
+      round(sl75) * 75 + round(slnone) * 100
   ), # assuming 100 for no speed limit
   blood_alcohol_limit = factor(
     round(bac10) * 2 + round(bac08) * 1,
@@ -67,7 +71,6 @@ data_clean <- data %>% mutate(
   graduated_drivers_license_law = factor(round(gdl)),
   seat_belt = factor(seatbelt,labels=c('none','primary', 'secondary')),
   min_age = as.factor(minage),
-  
   speed_limit_70plus = factor(round(sl70plus)),
   
   # demographics
@@ -117,11 +120,13 @@ Is it census? how where when was it collected?
 
 ```{r, warning=FALSE, message=FALSE, fig.height=4}
 # boxplot over time
-data_clean %>% ggplot(aes(reorder(state,desc(log_total_fatalities_rate)),log_total_fatalities_rate,
-             fill=state)) +
-  geom_boxplot(alpha=0.4) +
+data_clean %>% ggplot(aes(reorder(state, desc(
+  log_total_fatalities_rate
+)), log_total_fatalities_rate,
+fill = state)) +
+  geom_boxplot(alpha = 0.4) +
   # theme_economist_white(gray_bg=F) +
-  theme(legend.position="none",axis.text.y=element_text(size=6)) +
+  theme(legend.position = "none", axis.text.y = element_text(size = 6)) +
   scale_y_continuous() +
   xlab("State") +
   ylab("Log Total Fatalities Rate") +
@@ -129,13 +134,21 @@ data_clean %>% ggplot(aes(reorder(state,desc(log_total_fatalities_rate)),log_tot
 
 # lineplot over time
 data_clean %>%
-  ggplot(aes(year,log_total_fatalities_rate,color=state)) +
-  geom_point(alpha=0.4) +
-  geom_smooth(method="lm") +
-  facet_wrap(~state,scales = "free_y") +
-  theme(legend.position="none",axis.text.x=element_text(angle=45,hjust=1,vjust=1,size=6),
-        axis.text.y=element_text(size=6)) +
-  theme(strip.text=element_text(size=4)) +
+  ggplot(aes(year, log_total_fatalities_rate, color = state)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(method = "lm") +
+  facet_wrap( ~ state, scales = "free_y") +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1,
+      vjust = 1,
+      size = 6
+    ),
+    axis.text.y = element_text(size = 6)
+  ) +
+  theme(strip.text = element_text(size = 4)) +
   scale_y_continuous() +
   xlab("State") +
   ylab("Log Total Fatalities Rate")
@@ -169,7 +182,7 @@ Estimate a linear regression model of *totfatrte* on a set of dummy variables fo
     
 > In this section, we pool the state effects together and investigate total fatality rates over time.  
 
-> Linear models are a sensible place to start because they are simple and easy to interpret. Additionally, from the EDA we can see that log_total_fatalities_rate changes linearly over time.
+> Linear models are a sensible place to start because they are simple and easy to interpret.In our case, this linear model can show how much the average total fatalities rate changed compared with the year 1980.
 
 ```{r}
 preliminary_model  <- lm(log_total_fatalities_rate ~ year, data = data_clean)
@@ -185,7 +198,7 @@ $$log(total.fatality.rate_{i}) = \beta_{1980} + \Sigma_{i=1981}^{2004}\beta_i*I(
 > To achieve the total fatality rate, we require the inverse transform for the log function. 
 
 $$ total.fatality.rate = exp(\beta_{1980} + \Sigma_{i=1981}^{2004}\beta_i*I(year_i))$$
-> Initially, our model estimates that the total fatality rate of 1980 is `r exp(3.195)`. With a p-value near 0, this estimate is statistically significant. The additional beta's of the model are the estimatations of each years impact on the fatality rate from the baseline of 1980. The coefficients over time are negative and decreasing, such that they explain that over time the total fatality rate has dropped compared to the 1980 baseline. Almost all of these estimates, save for 1981 only, are statistically significant.
+> Initially, our model estimates that the total fatality rate of 1980 is `r round(exp(3.195),2)`. With a p-value near 0, this estimate is statistically significant. The additional beta's of the model are the estimatations of each years impact on the fatality rate from the baseline of 1980. The coefficients over time are negative and decreasing, such that they explain that over time the total fatality rate has dropped compared to the 1980 baseline. Almost all of these estimates, save for 1981 only, are statistically significant.
 
 
 ```{r}
@@ -250,38 +263,52 @@ summary(expanded_model)
 
 ```{r eda on the variables will cut later}
 
-mod3 <- lm(total_fatalities_rate ~ unemployment_rate, data=data_clean)
-summary(mod3)
-
-example <- loess(total_fatalities_rate ~ unemployment_rate,data= data_clean)
-data_clean %>%
-ggplot() + geom_point(aes(unemployment_rate, total_fatalities_rate)) + geom_line(example)
-
-data_clean %>%
-  ggplot() + geom_histogram(aes(total_fatalities_rate))
-ggplot(data=data_clean, aes(x=unemployment_rate, y=total_fatalities_rate, col=sl55))+geom_point()+ 
-        stat_smooth()
-
-ggplot(data=data_clean, aes(x=unemployment_rate, y=total_fatalities_rate, col=state))+geom_point()+ 
-        stat_smooth()
-
-ggplot(data=data_clean, aes(x=unemployment_rate, y=total_fatalities_rate))+geom_point()+ 
-        stat_smooth()
-
-ggplot(data=data_clean, aes(x=unemployment_rate, y=total_fatalities_rate, col=bac08))+geom_point()+ 
-        stat_smooth(method = 'lm')
-
-# bac is continuous, but has so few distinct values that we can represent it as ordinal values
-ggplot(data=data_clean, aes(group=bac10, y=total_fatalities_rate))+geom_boxplot()
-ggplot(data=data_clean, aes(group=bac08, y=total_fatalities_rate))+geom_boxplot()
-
-ggplot(data=data_clean, aes(group=factor(seatbelt, levels =c("0","1","2")), y=total_fatalities_rate))+geom_boxplot()
-
-ggplot(data=data, aes(group=factor(year), y=totfatrte))+geom_boxplot()
-ggplot(data=data_clean, aes(group=factor(per_se_law), y=total_fatalities_rate))+geom_boxplot()
-
-plot(x=data_clean$unemployment_rate, y=data_clean$total_fatalities_rate, type="p")
-lines(example, x =data_clean$unemployment_rate )
+# mod3 <-
+#   lm(total_fatalities_rate ~ unemployment_rate, data = data_clean)
+# summary(mod3)
+# 
+# example <-
+#   loess(total_fatalities_rate ~ unemployment_rate, data = data_clean)
+# data_clean %>%
+#   ggplot() + geom_point(aes(unemployment_rate, total_fatalities_rate)) + geom_line(example)
+# 
+# data_clean %>%
+#   ggplot() + geom_histogram(aes(total_fatalities_rate))
+# ggplot(data = data_clean,
+#        aes(x = unemployment_rate, y = total_fatalities_rate, col = sl55)) + geom_point() +
+#   stat_smooth()
+# 
+# ggplot(data = data_clean,
+#        aes(x = unemployment_rate, y = total_fatalities_rate, col = state)) + geom_point() +
+#   stat_smooth()
+# 
+# ggplot(data = data_clean, aes(x = unemployment_rate, y = total_fatalities_rate)) +
+#   geom_point() +
+#   stat_smooth()
+# 
+# ggplot(data = data_clean,
+#        aes(x = unemployment_rate, y = total_fatalities_rate, col = bac08)) + geom_point() +
+#   stat_smooth(method = 'lm')
+# 
+# # bac is continuous, but has so few distinct values that we can represent it as ordinal values
+# ggplot(data = data_clean, aes(group = bac10, y = total_fatalities_rate)) +
+#   geom_boxplot()
+# ggplot(data = data_clean, aes(group = bac08, y = total_fatalities_rate)) +
+#   geom_boxplot()
+# 
+# ggplot(data = data_clean, aes(group = factor(seatbelt, levels = c("0", "1", "2")), y =
+#                                 total_fatalities_rate)) + geom_boxplot()
+# 
+# ggplot(data = data, aes(group = factor(year), y = totfatrte)) + geom_boxplot()
+# ggplot(data = data_clean, aes(group = factor(per_se_law), y = total_fatalities_rate)) +
+#   geom_boxplot()
+# 
+# plot(
+#   x = data_clean$unemployment_rate,
+#   y = data_clean$total_fatalities_rate,
+#   type = "p"
+# )
+# lines(example, x = data_clean$unemployment_rate)
 ```
 
 
@@ -304,6 +331,7 @@ My way of adding variables related to the following concepts: (some of the vaira
 - Percent of the population between 14 and 24 years old: just use the variable *perc14_24*
 - Unemployment rate: use the *unem* **after log transformation**
 - Vehicle miles driven per capita: log(vehicmiles/statepop)
+
 ```{r}
 expanded_model = plm(
   log_total_fatalities_rate ~ year + blood_alcohol_limit + per_se_law +
@@ -364,15 +392,15 @@ For pooled OLS to be the appropriate estimator, we need to assume:
 
 1- **Linearity**: the model is linear in parameters
 
-2- **i.i.d.** : The observations are independent across individuals but not necessarily across time. This is guaranteed by random sampling of individuals.
+2- **I.I.D.** : The observations are independent across individuals but not necessarily across time.
 
 3- **Indentifiability**: the regressors, including a constant, are not perfectly collinear, and all regressors (but the constant) have non-zero variance and not too many extreme values.
 
-4- the independent variables is uncorrelated with idiosyncratic error term and individual-specific effect.
+4- The independent variables is **uncorrelated** with idiosyncratic error term and individual-specific effect.
 
 The pooled OLS estimator is consistent under assumptions 1-4. We also need to assume **homoskedasticity** and **no serial correlation** in the data to do inference based on the conventional OLS estimator of the covariance matrix.
 
-The main issues of pooled OLS is when the unobserved individual-specific effects are correlated with the independent variables, the model will suffer from an omitted variable bias. In this case, the fixed effect(FE) model is preferred because it eliminates the unobserved time-invariant effects by de-mean procedures. The rest of the assumptions are the same.
+The main issues of pooled OLS is when the unobserved individual-specific effects are correlated with the independent variables, the model will suffer from an omitted variable bias. In this case, the fixed effect(FE) model is preferred because it eliminates the unobserved time-invariant effects by de-mean procedures. The rest of the assumptions for the FE model are the same.
 
 We can run a test to see whether the pooled OLS model is better than the FE model as below. The null hypothesis is rejected, suggesting the significance of individual fixed effects. **Therefore, the FE model provides better estimates**.
 
@@ -391,7 +419,7 @@ Instead of estimating a fixed effects model, should you have estimated a random 
 
 ## Answer:
 
-The random effects model assumes the time-invariant unobserved effect is uncorrelated with the explanatory variables. Other than that, the rest assumptions are the same with the fixed effect model. Whether the time-invariant unobserved effect is uncorrelated with the explanatory variables can be tested with a Hausman test as below. **We reject the null hypothesis, suggesting the random effects model assumption is not met.** ^[We notice that if we use the original total fatalities rate instead of its logged version, the test will fail to reject the null hypothesis. Therefore, the data transformation can also influence the validity of the model choice.] Since the individual specific effects exist and they are correlated with the explanatory variables, the random effect model will suffer from biased coefficient estimates and standard error estimates.
+The random effects(RE) model assumes the time-invariant unobserved effect is uncorrelated with the explanatory variables. Other than that, the rest assumptions are the same with the FE model. Whether the time-invariant unobserved effect is uncorrelated with the explanatory variables can be tested with a Hausman test as below. **We reject the null hypothesis, suggesting the assumption is not met.** ^[We notice that if we use the original total fatalities rate instead of its logged version, the test will fail to reject the null hypothesis. Therefore, the data transformation can also influence the validity of the model choice.] Since the individual specific effects exist and they are correlated with the explanatory variables, the random effect model will suffer from biased coefficient estimates and standard error estimates.
 
 ```{r}
 random_effect_model = plm(
@@ -446,11 +474,10 @@ vmt_per_capita <- vmt %>% mutate(value=value/us_pop$value*1000,date=yearmonth(da
 vmt_per_capita %>% ggplot(aes(x=date,y=vehicle_miles_per_capita))+geom_line()
 ```
 
-We compare monthly miles driven during pandemic with the same month of 2018. As the table and plot below show:
+We compare monthly miles driven during pandemic with the same month of 2018. As the table and plot below show:[we exclude the data of Jan 2020 and Feb 2020 because the pandemic hadn't started in the US then.]
 
   - Apr 2020 demonstrated the largest decrease in driving by 39.69% 
   - Sep 2022 demonstrated the largest increase in driving by 0.69% 
-
 
 ```{r}
 vmt_pivot = vmt_per_capita %>% mutate(year = year(date), month = month(date)) %>% as_tibble() %>%
@@ -463,12 +490,15 @@ comparison = vmt_pivot %>% mutate(
   d2022 = 100 * (.data[["2022"]] / .data[["2018"]] - 1),
   d2023 = 100 * (.data[["2023"]] / .data[["2018"]] - 1),
 ) %>% dplyr::select(month, d2020, d2021, d2022, d2023)
-kable(comparison, digits = 2, caption = "change over the same month of 2018 (%)")
+comparison[1:2,2]=NA
 comparison %>% pivot_longer(cols = c(d2020, d2021, d2022, d2023)) %>%
   ggplot(aes(x = month, y = value, color = name)) + geom_line()
 ```
+```{r}
+kable(comparison, digits = 2, caption = "change over the same month of 2018 (%)")
+```
 
-In FE model, the coefficient of *log_vehicle_miles_per_capita* is 0.678, which means a unit increase in *log_vehicle_miles_per_capita* will cause the *log_total_fatalities_rate* to increase by 0.678. Therefore, we can calculate the changes to the total fatalities rate based on the changes of *log_vehicle_miles_per_capita*  during boom and bust in the pandemic, as below. However, since each state has different population and fatalities rate, we cannot calculate a specific number of fatalities based on the data above.
+In the FE model above, the coefficient of *log_vehicle_miles_per_capita* is 0.678, which means a unit increase in *log_vehicle_miles_per_capita* will cause the *log_total_fatalities_rate* to increase by 0.678. Therefore, we can calculate the changes to the total fatalities rate based on the changes of *log_vehicle_miles_per_capita*  during boom and bust in the pandemic, as below. However, since each state has different population and fatalities rate, we cannot calculate a specific number of fatalities based on the data above.
 
 ```{r}
 comparison_log = vmt_pivot %>% mutate(
