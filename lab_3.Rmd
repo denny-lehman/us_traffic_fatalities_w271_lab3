@@ -134,6 +134,7 @@ ks.test(data$totfatrte, 'pnorm') # reject null, data not normal
 
 
 ```
+
 >We start by examining the dependent variable - total fatality rate. The total fatality rate represents the number of deaths from traffic accidents per 1000 (FIX ME). The histogram of values suggests that the data is not normally distributed because of the long right tail. We can confirm the lack of normality using the Shapiro-Wilk test. The Shapiro-Wilk normality test has the null hypothesis that the data is normally distributed. With a p-value of 1.5e-15, we reject the null hypothesis and conclude that the data needs transformation to improve the linearity between the independent and dependent variables. 
 
 ```{r}
@@ -147,6 +148,7 @@ ks.test(data_clean$log_total_fatalities_rate, 'pnorm')
 qqnorm(data_clean$log_total_fatalities_rate, main='Normal')
 qqline(data_clean$log_total_fatalities_rate)
 ```
+
 After transformation, the dependent variable is now `log_total_fatality_rate` and it appears normally distributed.
 
 
@@ -193,11 +195,6 @@ data %>% mutate(log_total_fatalities_rate = log(totfatrte),
   ggplot() + geom_histogram(aes(total_fatalities_rate)) +
   geom_histogram(aes(log_total_fatalities_rate))
 
-
-data %>% mutate(log_total_fatalities_rate = log(totfatrte),
-                total_fatalities_rate = totfatrte) %>%
-plot_multi_histogram(.,)
-
 plot_multi_histogram <- function(df, feature, label_column) {
     plt <- ggplot(df, aes(x=eval(parse(text=feature)), fill=eval(parse(text=label_column)))) +
     geom_histogram(alpha=0.7, position="identity", aes(y = ..density..), color="black") +
@@ -206,6 +203,12 @@ plot_multi_histogram <- function(df, feature, label_column) {
     labs(x=feature, y = "Density")
     plt + guides(fill=guide_legend(title=label_column))
 }
+
+# data %>% mutate(log_total_fatalities_rate = log(totfatrte),
+#                 total_fatalities_rate = totfatrte) %>%
+# plot_multi_histogram()
+
+
 ```
 
 > EDA shows that the driver fatality rate has been trending down but is different on a state by state basis.
@@ -269,9 +272,6 @@ data.frame(year=c(1980:2004), total_fatality_rate=pred) %>% ggplot() +
 ```
 
 
-
-
-
 > An important feature of the dataset is that it has both longitudinal (recorded fatality rates for years 1980-2004) and cross sectional (the state at which the driving occured) features which are hallmarks of panel data. In this way, each state has multiple records in the dataset corresponding to different years, such that Alabama has 24 repeated observations in the dataset, one for each year.  This feature introduces omitted variable bias because the states likely have effects on fatality rates that we do not see but will violate our model assummptions based on repeated sampling. Specifically, this linear model regressing year on log total fatality rate violates the IID assumption. For example the state variable represents the location in the US that the drivers are in. the state is repeated across years which means that each data point is not idependent and identically distributed. 
 > We take the results of this model with a grain of salt because linear models are not reliable with panel data since they violate iid. 
 
@@ -300,19 +300,30 @@ Expand the **Preliminary Model** by adding variables related to the following co
 - Unemployment rate
 - Vehicle miles driven per capita. 
 
-> (MAYBE CUT THIS) Blood alcohol variables describe if the legal blood alcohol content (BAC) is for a driver. If the Driver's BAC is over the legal limit, then they are illegally driving while intoxicated. There are two columns in the driving dataset, bac08 and bac10. The bac08 variable describes if the state had a 0.08 BAC limit that year, with 0 being no law and 1 meaning having a law. If the law went into effect for a partial year, then the value is factional for the amount of time it was in effect (a law starting in June would have 6/12 months = 0.5 value). The feature bac10 has the same properties - the value is the fractional amount of time the law was in effect that year (0 not in effect, 1 in effect). 
-We engineer these features using rounding such that our new feature shows if the BAC law was effective for a majority of the year.
+> The table below summarizes how to reflect the concepts with our data and their transformation. The only explanation needed is the "Round" procedure. The related variables( *bac08*, *bac10*, *perse*, *sl70plus*, *gld*) are conceptually dummy variables. However, we see some fractional number in the raw data, which denotes the amount of time it was in effect (a law starting in June would have 6/12 months = 0.5 value). We engineer these features using rounding such that our new feature shows if the law was effective for the majority of the year.
+
+| Concept                                     | Variable in raw data     | Round | Log trans. | Description                                                                                                 |
+| ------------------------------------------- | ------------------------ | ----- | ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| Blood alcohol levels                        | bac08, bac10             | yes   |                    | Combine bac08 and bac10 into a ordinal variabe: None=no limit; bac10=limit at 0.1; bac08=limit at 0.08  |
+| Per se laws                                 | perse                    | yes   |                    | 0=no per se law, 1=per se law                                                                               |
+| Primary seat belt laws                      | seatblet                 |    |                    | 0=no seat belt law; 1=primary, 2=secondary                                                              |
+| Secondary seat belt laws                    | as above                 |    |                    | as above                                                                                                    |
+| Speed limits faster than 70                 | sl70plus                 | yes   |                    | 0=speed limit <70; 1=speed limit >=70 or no limit                                                       |
+| Graduated drivers licenses                  | gdl                      | yes   |                    | 0=no graduated drivers license law                                                                          |
+| Percent of the population between 14 and 24 | perc14_24                |       |                    | It's a continuous variable with no obvious skewness, so no transformation needed                         |
+| Unemployment rate                           | unem                     |       | yes                | It's a continuous variable and obviously right skewed, so log transformation is preferred                |
+| Vehicle miles driven per capita             | vehicmiles, statepop |       | yes                | The ratio of these two variables. Since it's is right-skewed, we perform log transformation |
 
 
 If it is appropriate, include transformations of these variables. Please carefully explain carefully your rationale, which should be based on your EDA, behind any transformation you made. If no transformation is made, explain why transformation is not needed. 
 
 - How are the blood alcohol variables defined? Interpret the coefficients that you estimate for this concept. 
+
 > BAC laws put a limit on alcohol consumption for drivers where BAC is measured in a percentage of alcohol in the blood. Before Congress enacted a national BAC limit in the year 2000, each state was able to enact their own laws with varying legal limits on BAC. Our data set identifies these laws as a state having no BAC limit, a BAC limit of .08, and a BAC limit of .10. We label the state based on the law that was in place for the majority of the year. 
 
 > The effect of having no BAC law was added to the intercept term, which also includes the effects of the year 1980, no seatbelt laws, and more. The estimate for having a BAC08 law was -0.062 with a p-value of 0.01. That means that states enacting a BAC law limit of 0.08 see a decrease in fatality rate of `r exp(0.062)` all else being equal. States that enact a more lenient level of 0.10 BAC see less of an effect. Those states see a decrease in fatality rates of `r exp(0.0170)`, but with a pvalue of 0.34 the effect is not statistically significant.
 
 - Do *per se laws* have a negative effect on the fatality rate? 
-
 
 > Per se laws strive to improve driver safety by allowing judges to suspend the license of an arrest drunk driver before they are convicted of a crime. Unfortunately, the pooled model does not support the effect. With a coefficient -0.01 and a p-value 0.19, there is not enough evidence to support per se laws significantly improving safety via log fatality rates.  
 
@@ -322,20 +333,6 @@ If it is appropriate, include transformations of these variables. Please careful
 > Seat belts help reduce injuries and fatalities in car crashes. In an attempt to improve seat belt usage, states enacted primary and secondary seat belt laws. Primary seat belt laws allow law enforcement to stop drivers and give tickets to drivers not wearing a seatbelt. Secondary laws allow police performing a traffic stop for another reason, say speeding, to give out tickets for not wearing a seat belt. Secondary laws would be considered more stringent.
 
 > The coefficients for primary and secondary seatbelt laws are 0.009 and 0.02042 respectively. Unfortunately, both p-values are much larger than the critical value at 0.96 and 0.34 respectively, meaning that there is not enough evidence to suggest that there is a significant relationship between seatbelt laws and log fatality rates, all else equal. 
-
-**Answer**
-
-My way of adding variables related to the following concepts: (some of the vairables need log transformation because they are skewed)
-
-- Blood alcohol levels: as we talked about
-- Per se laws: similarly, round and factor 
-- Primary seat belt laws (Note that if a law was enacted sometime within a year the fraction of the year is recorded in place of the zero-one indicator.): actually there's no fractional number, so we can just factorize the *seatbelt* variable.
-- Secondary seat belt laws: combined with the primary seat belt laws.
-- Speed limits faster than 70: round and factorize the vairable *sl70plus*
-- Graduated drivers licenses: round and factorize the vairable *gdl*
-- Percent of the population between 14 and 24 years old: just use the variable *perc14_24*
-- Unemployment rate: use the *unem* **after log transformation**
-- Vehicle miles driven per capita: log(vehicmiles/statepop)
 
 ```{r}
 expanded_model = plm(
@@ -451,7 +448,7 @@ Now, use these changes in driving to make forecasts from your models.
 
 ## answer
 
-We download both the monthly *Vehicle Miles Traveled* and *Population* data of the U.S. from [FRED](https://fred.stlouisfed.org/) and use their ratio as the vehicle miles driven per capita, as below. The time series plot shows it has strong seasonality and changed dramatically during the pandemic.
+We download both the monthly *Vehicle Miles Traveled* and *Population* data of the U.S. from [FRED](https://fred.stlouisfed.org/) and use their ratio as the vehicle miles traveled(VMT) per capita, as below. The time series plot shows it has strong seasonality and changed dramatically during the pandemic.
 
 ```{r}
 if(!"fredr"%in%rownames(installed.packages())) {install.packages("fredr")}
@@ -473,7 +470,8 @@ us_pop=fredr(
 # vmt_per_capita are in miles per capita
 vmt_per_capita <- vmt %>% mutate(value=value/us_pop$value*1000,date=yearmonth(date)) %>% 
   rename(vehicle_miles_per_capita=value)
-vmt_per_capita %>% ggplot(aes(x=date,y=vehicle_miles_per_capita))+geom_line()
+vmt_per_capita %>% ggplot(aes(x=date,y=vehicle_miles_per_capita))+geom_line()+
+  ggtitle("Monthly VMT per capita")
 ```
 
 We compare monthly miles driven during pandemic with the same month of 2018. As the table and plot below show:[we exclude the data of Jan 2020 and Feb 2020 because the pandemic hadn't started in the US then.]
@@ -494,10 +492,11 @@ comparison = vmt_pivot %>% mutate(
 ) %>% dplyr::select(month, d2020, d2021, d2022, d2023)
 comparison[1:2,2]=NA
 comparison %>% pivot_longer(cols = c(d2020, d2021, d2022, d2023)) %>%
-  ggplot(aes(x = month, y = value, color = name)) + geom_line()
+  ggplot(aes(x = month, y = value, color = name)) + geom_line()+
+  ggtitle("Percent change of VMT per capita:\nduring pandemic vs. the same month in 2018")+ylab("%")
 ```
 ```{r}
-kable(comparison, digits = 2, caption = "change over the same month of 2018 (%)")
+kable(comparison, digits = 2, caption = "Percent change of VMT per capita over\nthe same month of 2018 (%)")
 ```
 
 In the FE model above, the coefficient of *log_vehicle_miles_per_capita* is 0.678, which means a unit increase in *log_vehicle_miles_per_capita* will cause the *log_total_fatalities_rate* to increase by 0.678. Therefore, we can calculate the changes to the total fatalities rate based on the changes of *log_vehicle_miles_per_capita*  during boom and bust in the pandemic, as below. However, since each state has different population and fatalities rate, we cannot calculate a specific number of fatalities based on the data above.
