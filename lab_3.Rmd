@@ -231,7 +231,7 @@ Expand the **Preliminary Model** by adding variables related to the following co
 - Unemployment rate
 - Vehicle miles driven per capita. 
 
-> Blood alcohol variables describe the legal blood alcohol content (BAC) is for a driver. If the Driver's BAC is over the legal limit, then they are illegally driving while intoxicated. There are two columns in the driving dataset, bac08 and bac10. The bac08 variable describes if the state had a 0.08 BAC limit that year, with 0 being no law and 1 meaning having a law. If the law went into effect for a partial year, then the value is factional for the amount of time it was in effect (a law starting in June would have 6/12 months = 0.5 value). The feature bac10 has the same properties - the value is the fractional amount of time the law was in effect that year (0 not in effect, 1 in effect). 
+> (MAYBE CUT THIS) Blood alcohol variables describe if the legal blood alcohol content (BAC) is for a driver. If the Driver's BAC is over the legal limit, then they are illegally driving while intoxicated. There are two columns in the driving dataset, bac08 and bac10. The bac08 variable describes if the state had a 0.08 BAC limit that year, with 0 being no law and 1 meaning having a law. If the law went into effect for a partial year, then the value is factional for the amount of time it was in effect (a law starting in June would have 6/12 months = 0.5 value). The feature bac10 has the same properties - the value is the fractional amount of time the law was in effect that year (0 not in effect, 1 in effect). 
 We engineer these features using rounding such that our new feature shows if the BAC law was effective for a majority of the year.
 
 ```{r expanded model}
@@ -245,51 +245,24 @@ expanded_model = plm(
 )
 summary(expanded_model)
 ```
-> Adding the BAC laws to the model, we see that adding a BAC08 law to the state has the average effect of lowering the total fatality rate by -1.95 all else equal. Adding a BAC10 law to the state lowers the total fatality rate by -1.63, all else equal.
-
-
-```{r eda on the variables will cut later}
-
-mod3 <- lm(total_fatalities_rate ~ unemployment_rate, data=data_clean)
-summary(mod3)
-
-example <- loess(total_fatalities_rate ~ unemployment_rate,data= data_clean)
-data_clean %>%
-ggplot() + geom_point(aes(unemployment_rate, total_fatalities_rate)) + geom_line(example)
-
-data_clean %>%
-  ggplot() + geom_histogram(aes(total_fatalities_rate))
-ggplot(data=data_clean, aes(x=unemployment_rate, y=total_fatalities_rate, col=sl55))+geom_point()+ 
-        stat_smooth()
-
-ggplot(data=data_clean, aes(x=unemployment_rate, y=total_fatalities_rate, col=state))+geom_point()+ 
-        stat_smooth()
-
-ggplot(data=data_clean, aes(x=unemployment_rate, y=total_fatalities_rate))+geom_point()+ 
-        stat_smooth()
-
-ggplot(data=data_clean, aes(x=unemployment_rate, y=total_fatalities_rate, col=bac08))+geom_point()+ 
-        stat_smooth(method = 'lm')
-
-# bac is continuous, but has so few distinct values that we can represent it as ordinal values
-ggplot(data=data_clean, aes(group=bac10, y=total_fatalities_rate))+geom_boxplot()
-ggplot(data=data_clean, aes(group=bac08, y=total_fatalities_rate))+geom_boxplot()
-
-ggplot(data=data_clean, aes(group=factor(seatbelt, levels =c("0","1","2")), y=total_fatalities_rate))+geom_boxplot()
-
-ggplot(data=data, aes(group=factor(year), y=totfatrte))+geom_boxplot()
-ggplot(data=data_clean, aes(group=factor(per_se_law), y=total_fatalities_rate))+geom_boxplot()
-
-plot(x=data_clean$unemployment_rate, y=data_clean$total_fatalities_rate, type="p")
-lines(example, x =data_clean$unemployment_rate )
-```
-
 
 If it is appropriate, include transformations of these variables. Please carefully explain carefully your rationale, which should be based on your EDA, behind any transformation you made. If no transformation is made, explain why transformation is not needed. 
 
 - How are the blood alcohol variables defined? Interpret the coefficients that you estimate for this concept. 
+> BAC laws put a limit on alcohol consumption for drivers where BAC is measured in a percentage of alcohol in the blood. Before Congress enacted a national BAC limit in the year 2000, each state was able to enact their own laws with varying legal limits on BAC. Our data set identifies these laws as a state having no BAC limit, a BAC limit of .08, and a BAC limit of .10. We label the state based on the law that was in place for the majority of the year. 
+
+> The effect of having no BAC law was added to the intercept term, which also includes the effects of the year 1980, no seatbelt laws, and more. The estimate for having a BAC08 law was -0.062 with a p-value of 0.01. That means that states enacting a BAC law limit of 0.08 see a decrease in fatality rate of `r exp(0.062)` all else being equal. States that enact a more lenient level of 0.10 BAC see less of an effect. Those states see a decrease in fatality rates of `r exp(0.0170)`, but with a pvalue of 0.34 the effect is not statistically significant.
+
 - Do *per se laws* have a negative effect on the fatality rate? 
+
+
+> Per se laws strive to improve driver safety by allowing judges to suspend the license of an arrest drunk driver before they are convicted of a crime. Unfortunately, the pooled model does not support the effect. With a coefficient -0.01 and a p-value 0.19, there is not enough evidence to support per se laws significantly improving safety via log fatality rates.  
+
 - Does having a primary seat belt law? 
+
+> Seat belts help reduce injuries and fatalities in car crashes. In an attempt to improve seat belt usage, states enacted primary and secondary seat belt laws. Primary seat belt laws allow law enforcement to stop drivers and give tickets to drivers not wearing a seatbelt. Secondary laws allow police performing a traffic stop for another reason, say speeding, to give out tickets for not wearing a seat belt. Secondary laws would be considered more stringent.
+
+> The coefficients for primary and secondary seatbelt laws are 0.009 and 0.02042 respectively. Unfortunately, both p-values are much larger than the critical value at 0.96 and 0.34 respectively, meaning that there is not enough evidence to suggest that there is a significant relationship between seatbelt laws and log fatality rates, all else equal. 
 
 **Answer**
 
