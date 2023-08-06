@@ -182,7 +182,7 @@ Estimate a linear regression model of *totfatrte* on a set of dummy variables fo
     
 > In this section, we pool the state effects together and investigate total fatality rates over time.  
 
-> Linear models are a sensible place to start because they are simple and easy to interpret.In our case, this linear model can show how much the average total fatalities rate changed compared with the year 1980.
+> Linear models are a sensible place to start because they are simple and easy to interpret. In our case, this linear model can show how much the average total fatalities rate changed compared with the year 1980.
 
 ```{r}
 preliminary_model  <- lm(log_total_fatalities_rate ~ year, data = data_clean)
@@ -197,8 +197,10 @@ $$log(total.fatality.rate_{i}) = \beta_{1980} + \Sigma_{i=1981}^{2004}\beta_i*I(
 
 > To achieve the total fatality rate, we require the inverse transform for the log function. 
 
-$$ total.fatality.rate = exp(\beta_{1980} + \Sigma_{i=1981}^{2004}\beta_i*I(year_i))$$
-> Initially, our model estimates that the total fatality rate of 1980 is `r round(exp(3.195),2)`. With a p-value near 0, this estimate is statistically significant. The additional beta's of the model are the estimatations of each years impact on the fatality rate from the baseline of 1980. The coefficients over time are negative and decreasing, such that they explain that over time the total fatality rate has dropped compared to the 1980 baseline. Almost all of these estimates, save for 1981 only, are statistically significant.
+$$ total.fatality.rate_i = exp(\beta_{1980} + \Sigma_{i=1981}^{2004}\beta_i*I(year_i))$$
+
+
+> Initially, our model estimates that the total fatality rate of 1980 is `r round(exp(3.195),2)`. With a p-value near 0, this estimate is statistically significant. The additional beta's of the model are the estimatations of each year's impact on the fatality rate from the baseline of 1980. The coefficients over time are negative and decreasing, meaning that the model suggests driving got safer over the period because the fatality rate decreased. Almost all of these estimates, save for 1981 only, are statistically significant. 
 
 
 ```{r}
@@ -214,7 +216,7 @@ data.frame(year=c(1980:2004), total_fatality_rate=pred) %>% ggplot() +
 
 
 
-> The model suggest that driving got safer over the period because the fatality rate decreased.
+
 
 > An important feature of the dataset is that it has both longitudinal (recorded fatality rates for years 1980-2004) and cross sectional (the state at which the driving occured) features which are hallmarks of panel data. In this way, each state has multiple records in the dataset corresponding to different years, such that Alabama has 24 repeated observations in the dataset, one for each year.  This feature introduces omitted variable bias because the states likely have effects on fatality rates that we do not see but will violate our model assummptions based on repeated sampling. Specifically, this linear model regressing year on log total fatality rate violates the IID assumption. For example the state variable represents the location in the US that the drivers are in. the state is repeated across years which means that each data point is not idependent and identically distributed. 
 > We take the results of this model with a grain of salt because linear models are not reliable with panel data since they violate iid. 
@@ -247,17 +249,6 @@ Expand the **Preliminary Model** by adding variables related to the following co
 > (MAYBE CUT THIS) Blood alcohol variables describe if the legal blood alcohol content (BAC) is for a driver. If the Driver's BAC is over the legal limit, then they are illegally driving while intoxicated. There are two columns in the driving dataset, bac08 and bac10. The bac08 variable describes if the state had a 0.08 BAC limit that year, with 0 being no law and 1 meaning having a law. If the law went into effect for a partial year, then the value is factional for the amount of time it was in effect (a law starting in June would have 6/12 months = 0.5 value). The feature bac10 has the same properties - the value is the fractional amount of time the law was in effect that year (0 not in effect, 1 in effect). 
 We engineer these features using rounding such that our new feature shows if the BAC law was effective for a majority of the year.
 
-```{r expanded model}
-
-expanded_model = plm(
-  log_total_fatalities_rate ~ factor(year) + blood_alcohol_limit + per_se_law +
-    seat_belt + speed_limit_70plus + graduated_drivers_license_law + perc14_24 +
-    log_umeployment_rate + log_vehicle_miles_per_capita,
-  data = data_clean,index = c("state", "year"),
-  model = "pooling"
-)
-summary(expanded_model)
-```
 
 If it is appropriate, include transformations of these variables. Please carefully explain carefully your rationale, which should be based on your EDA, behind any transformation you made. If no transformation is made, explain why transformation is not needed. 
 
@@ -302,9 +293,6 @@ expanded_model = plm(
 )
 summary(expanded_model)
 ```
-> Blood alcohol variables describe the legal blood alcohol content (BAC) is for a driver. If the Driver's BAC is over the legal limit, then they are illegally driving while intoxicated. There are two columns in the driving dataset, bac08 and bac10. The bac08 variable describes if the state had a 0.08 BAC limit that year, with 0 being no law and 1 meaning having a law. If the law went into effect for a partial year, then the value is factional for the amount of time it was in effect (a law starting in June would have 6/12 months = 0.5 value). The feature bac10 has the same properties - the value is the fractional amount of time the law was in effect that year (0 not in effect, 1 in effect). 
-We engineer these features using rounding such that our new feature shows if the BAC law was effective for a majority of the year.
-
 
 # (15 points) State-Level Fixed Effects 
 
@@ -329,7 +317,7 @@ From the comparison below we can see:
 
 3. The coefficient for *primary seat belt law* is -0.04, which also becomes significant and more negative in the FE model, implying the primary seat belt law can help reduce  the total fatalities rate by nearly 4%.
 
-```{r}
+```{r} 
 fixed_effect_model = plm(
   log_total_fatalities_rate ~ year + blood_alcohol_limit + per_se_law +
     seat_belt + speed_limit_70plus + graduated_drivers_license_law + perc14_24 +
