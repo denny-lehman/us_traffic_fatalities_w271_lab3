@@ -63,8 +63,8 @@ data_clean <- data %>% mutate(
       round(sl75) * 75 + round(slnone) * 100
   ), # assuming 100 for no speed limit
   blood_alcohol_limit = factor(
-    round(bac10) * 2 + round(bac08) * 1,
-    labels = c('none', 'bac08', 'bac10')
+    round(bac10) * 1 + round(bac08) * 2,
+    labels = c('none', 'bac10', 'bac08')
   ),
   zero_tolerance_law = factor(round(zerotol)),
   per_se_law = factor(round(perse)),
@@ -118,6 +118,38 @@ Is it census? how where when was it collected?
     - What is the average of `total_fatalities_rate` in each of the years in the time period covered in this dataset? 
 
 
+```{r}
+# histograms
+data %>% mutate(log_total_fatalities_rate = log(totfatrte),
+                total_fatalities_rate = totfatrte) %>%
+ggplot(aes(x=total_fatalities_rate)) + geom_histogram(aes(y=..density..), alpha=0.7) + geom_density(alpha=0.3, fill="red") +geom_vline(aes(xintercept=mean(total_fatalities_rate)), color="black", linetype="dashed", size=1) +
+    labs(x="total_fatalities_rate", y = "Density")
+# consider qq plot
+qqnorm(data$totfatrte, main='Not Normal')
+qqline(data$totfatrte)
+# null hypothesis is data is normally distributed
+shapiro.test(data$totfatrte) # reject null, data not normal
+# null hypothesis is normally distributed
+ks.test(data$totfatrte, 'pnorm') # reject null, data not normal
+
+
+```
+>We start by examining the dependent variable - total fatality rate. The total fatality rate represents the number of deaths from traffic accidents per 1000 (FIX ME). The histogram of values suggests that the data is not normally distributed because of the long right tail. We can confirm the lack of normality using the Shapiro-Wilk test. The Shapiro-Wilk normality test has the null hypothesis that the data is normally distributed. With a p-value of 1.5e-15, we reject the null hypothesis and conclude that the data needs transformation to improve the linearity between the independent and dependent variables. 
+
+```{r}
+# test log transform
+data_clean %>%
+  ggplot(aes(x=log_total_fatalities_rate)) + geom_histogram(aes(y=..density..), alpha=0.7) + geom_density(alpha=0.3, fill="red") +geom_vline(aes(xintercept=mean(log_total_fatalities_rate)), color="black", linetype="dashed", size=1) +
+    labs(x="log_total_fatalities_rate", y = "Density", title='Log transform of total fatality rate appears normal')
+hist(data_clean$log_total_fatalities_rate)
+shapiro.test(data_clean$log_total_fatalities_rate)
+ks.test(data_clean$log_total_fatalities_rate, 'pnorm') 
+qqnorm(data_clean$log_total_fatalities_rate, main='Normal')
+qqline(data_clean$log_total_fatalities_rate)
+```
+After transformation, the dependent variable is now `log_total_fatality_rate` and it appears normally distributed.
+
+
 ```{r, warning=FALSE, message=FALSE, fig.height=4}
 # boxplot over time
 data_clean %>% ggplot(aes(reorder(state, desc(
@@ -152,6 +184,28 @@ data_clean %>%
   scale_y_continuous() +
   xlab("State") +
   ylab("Log Total Fatalities Rate")
+
+
+
+
+data %>% mutate(log_total_fatalities_rate = log(totfatrte),
+                total_fatalities_rate = totfatrte) %>%
+  ggplot() + geom_histogram(aes(total_fatalities_rate)) +
+  geom_histogram(aes(log_total_fatalities_rate))
+
+
+data %>% mutate(log_total_fatalities_rate = log(totfatrte),
+                total_fatalities_rate = totfatrte) %>%
+plot_multi_histogram(.,)
+
+plot_multi_histogram <- function(df, feature, label_column) {
+    plt <- ggplot(df, aes(x=eval(parse(text=feature)), fill=eval(parse(text=label_column)))) +
+    geom_histogram(alpha=0.7, position="identity", aes(y = ..density..), color="black") +
+    geom_density(alpha=0.7) +
+    geom_vline(aes(xintercept=mean(eval(parse(text=feature)))), color="black", linetype="dashed", size=1) +
+    labs(x=feature, y = "Density")
+    plt + guides(fill=guide_legend(title=label_column))
+}
 ```
 
 > EDA shows that the driver fatality rate has been trending down but is different on a state by state basis.
