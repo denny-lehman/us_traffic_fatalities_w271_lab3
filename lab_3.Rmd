@@ -53,32 +53,34 @@ data_clean <- data %>% mutate(
   year_of_observation = factor(as.numeric(year_of_observation)),
   year = factor(year),
   state = factor(state),
+
+  # laws
   speed_limit = factor(
     round(sl55) * 55 + round(sl65) * 65 + round(sl70) * 70 + round(sl75) * 75 + round(slnone) * 100
-  ),
-  # assuming 100 for no speed limit
-  seat_belt = factor(seatbelt,labels=c('none','primary', 'secondary')),
-  min_age = as.factor(minage),
+  ), # assuming 100 for no speed limit
   blood_alcohol_limit = factor(
     round(bac10) * 2 + round(bac08) * 1,
     labels = c('none', 'bac08', 'bac10')
   ),
-  # blood_alcohol_limit = factor(
-  #   if_else(round(bac10) == 1, 'bac10', 
-  #           if_else(round(bac08) ==1, 'bac08', 'none')),
-  #   labels = c('none', 'bac08', 'bac10')), 
-  
-  # laws
   zero_tolerance_law = factor(round(zerotol)),
   per_se_law = factor(round(perse)),
   graduated_drivers_license_law = factor(round(gdl)),
+  seat_belt = factor(seatbelt,labels=c('none','primary', 'secondary')),
+  min_age = as.factor(minage),
   
   speed_limit_70plus = factor(round(sl70plus)),
+  
+  # demographics
   log_umeployment_rate = log(unem),
-  log_total_fatalities_rate = log(totfatrte),
-  log_vehicle_miles_per_capita = log(vehicmiles / statepop)
-  ) %>% rename(total_fatalities_rate = totfatrte) %>%
-    dplyr::select(
+  log_vehicle_miles_per_capita = log(vehicmiles / statepop),
+  
+  # dependent variable
+  log_total_fatalities_rate = log(totfatrte)
+    ) %>% 
+  rename(
+    total_fatalities_rate = totfatrte
+    ) %>%
+  dplyr::select(
       year,
       state,
       total_fatalities_rate,
@@ -100,6 +102,12 @@ data_clean <- data %>% mutate(
 2. (5 points) Provide a description of the basic structure of the dataset. What is this data? How, where, and when is it collected? Is the data generated through a survey or some other method? Is the data that is presented a sample from the population, or is it a *census* that represents the entire population? Minimally, this should include:
     - How is the our dependent variable of interest `total_fatalities_rate` defined? 
     
+> The data comes from a study conducted by our textbook author. In the study, Wooldridge et al. invistigate the effects of Blood Alcohol Content laws on driving safety in the United States. The data contains observations of each state from 1980 to 2004 which means it includes both longitudinal and cross sectional aspects. Thus, the panel data is the culmination of both discrete and time series statistics and requires panel data analysis. The data was taken during a natural experiment, where the split into treatment and control groups came from state legislatures enacting laws at different times.
+
+Is it census? how where when was it collected?
+
+> citation: Wooldridge Source: Freeman, D.G. (2007), “Drunk Driving Legislation and Traffic Fatalities: New Evidence on BAC 08 Laws,” Contemporary Economic Policy 25, 293–308. Professor Freeman kindly provided the data. Data loads lazily. 
+
     <!-- total traffic fatalities divided by state population -->
     
 3. (20 points) Conduct a very thorough EDA, which should include both graphical and tabular techniques, on the dataset, including both the dependent variable `total_fatalities_rate` and the potential explanatory variables. Minimally, this should include: 
@@ -133,6 +141,11 @@ data_clean %>%
   ylab("Log Total Fatalities Rate")
 ```
 
+> EDA shows that the driver fatality rate has been trending down but is different on a state by state basis.
+> figure 1 shows States have varying degrees of both median and spread of fatality rates over time.
+> figure 2 shows that fatality rate over time has decreased for almost every state
+
+
 
 As with every EDA this semester, the goal of this EDA is not to document your own process of discovery -- save that for an exploration notebook -- but instead it is to bring a reader that is new to the data to a full understanding of the important features of your data as quickly as possible. In order to do this, your EDA should include a detailed, orderly narrative description of what you want your reader to know. Do not include any output -- tables, plots, or statistics -- that you do not intend to write about.
 
@@ -154,6 +167,8 @@ Estimate a linear regression model of *totfatrte* on a set of dummy variables fo
 <!-- 1) may suffer from omitted variable effect; 2) serial correlation may cause false variance estimation; 3) cannot answer the question of causality -->
     
     
+> In this section, we pool the state effects together and investigate total fatality rates over time.  
+
 > Linear models are a sensible place to start because they are simple and easy to interpret. Additionally, from the EDA we can see that log_total_fatalities_rate changes linearly over time.
 
 ```{r}
@@ -164,14 +179,13 @@ summary(preliminary_model)
 
 > This model describes the  log of total fatality rate conditional on the year the driving occured. Since each year is a binary variable, year 1980 represents the intercept term in the model and years 1981 through 2004 are represented with an indicator variable. The coefficients on all non intercept terms represent the change in the log fatality rate compared to the 1980 baseline. 
 
-$$log(total .fatality.rate_{1980}) = \beta_0 $$
-$$log(tot.fat.rate_{i}) = \beta_{1980} + \Sigma_{i=1981}^{2004}\beta_i*I(year_i)$$
+$$log(total.fatality.rate_{i}) = \beta_{1980} + \Sigma_{i=1981}^{2004}\beta_i*I(year_i)$$
 
 
 > To achieve the total fatality rate, we require the inverse transform for the log function. 
 
 $$ total.fatality.rate = exp(\beta_{1980} + \Sigma_{i=1981}^{2004}\beta_i*I(year_i))$$
-Initially, our model estimates that the total fatality rate of 1980 is `r exp(3.195)`. With a p-value near 0, this estimate is statistically significant. The additional beta's of the model are the estimatations of each years impact on the fatality rate. The coefficients over time are negative and decreasing, such that they explain that over time the total fatality rate has dropped compared to the 1980 baseline. Almost all of these estimates, save for 1981 only, are statistically significant.
+> Initially, our model estimates that the total fatality rate of 1980 is `r exp(3.195)`. With a p-value near 0, this estimate is statistically significant. The additional beta's of the model are the estimatations of each years impact on the fatality rate from the baseline of 1980. The coefficients over time are negative and decreasing, such that they explain that over time the total fatality rate has dropped compared to the 1980 baseline. Almost all of these estimates, save for 1981 only, are statistically significant.
 
 
 ```{r}
@@ -187,14 +201,14 @@ data.frame(year=c(1980:2004), total_fatality_rate=pred) %>% ggplot() +
 
 
 
-> The model suggest that driving got safer over the period. The estimates for years in the in 1980 and 1981 have estimates of 8 and 6 which represent that the fatality rate increases during these years. Most years in the 80s have positive significant estimates 
+> The model suggest that driving got safer over the period because the fatality rate decreased.
 
 > An important feature of the dataset is that it has both longitudinal (recorded fatality rates for years 1980-2004) and cross sectional (the state at which the driving occured) features which are hallmarks of panel data. In this way, each state has multiple records in the dataset corresponding to different years, such that Alabama has 24 repeated observations in the dataset, one for each year.  This feature introduces omitted variable bias because the states likely have effects on fatality rates that we do not see but will violate our model assummptions based on repeated sampling. Specifically, this linear model regressing year on log total fatality rate violates the IID assumption. For example the state variable represents the location in the US that the drivers are in. the state is repeated across years which means that each data point is not idependent and identically distributed. 
 > We take the results of this model with a grain of salt because linear models are not reliable with panel data since they violate iid. 
 
 > pooled data (not independent) has to do with the way the data is strucutured not the sampling variability
 
-
+> Need to comment on consistency, bias,  reliability of estimates
 
 
 
@@ -220,18 +234,7 @@ Expand the **Preliminary Model** by adding variables related to the following co
 > Blood alcohol variables describe the legal blood alcohol content (BAC) is for a driver. If the Driver's BAC is over the legal limit, then they are illegally driving while intoxicated. There are two columns in the driving dataset, bac08 and bac10. The bac08 variable describes if the state had a 0.08 BAC limit that year, with 0 being no law and 1 meaning having a law. If the law went into effect for a partial year, then the value is factional for the amount of time it was in effect (a law starting in June would have 6/12 months = 0.5 value). The feature bac10 has the same properties - the value is the fractional amount of time the law was in effect that year (0 not in effect, 1 in effect). 
 We engineer these features using rounding such that our new feature shows if the BAC law was effective for a majority of the year.
 
-```{r convert bac08 and bac10}
-expanded_model <- lm(log_total_fatalities_rate ~ blood_alcohol_limit + 
-                       per_se_law  +
-                       seat_belt +
-                       speed_limit_70plus +
-                       graduated_drivers_license_law
-                     + perc14_24
-                     +log_umeployment_rate
-                     +log_vehicle_miles_per_capita
-                     +year,data=data_clean)
-summary(expanded_model)
-
+```{r expanded model}
 
 expanded_model = plm(
   log_total_fatalities_rate ~ factor(year) + blood_alcohol_limit + per_se_law +
