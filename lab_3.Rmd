@@ -17,6 +17,7 @@ library(knitr)
 library(patchwork)
 library(lubridate)
 library(tsibble)
+library(tseries)
 ```
 
 
@@ -105,56 +106,34 @@ data_clean <- data %>% mutate(
 2. (5 points) Provide a description of the basic structure of the dataset. What is this data? How, where, and when is it collected? Is the data generated through a survey or some other method? Is the data that is presented a sample from the population, or is it a *census* that represents the entire population? Minimally, this should include:
     - How is the our dependent variable of interest `total_fatalities_rate` defined? 
     
-> The data comes from a study conducted by our textbook author. In the study, Wooldridge et al. invistigate the effects of Blood Alcohol Content laws on driving safety in the United States. The data contains observations of each state from 1980 to 2004 which means it includes both longitudinal and cross sectional aspects. Thus, the panel data is the culmination of both discrete and time series statistics and requires panel data analysis. The data was taken during a natural experiment, where the split into treatment and control groups came from state legislatures enacting laws at different times.
+> The data comes from a study conducted by our textbook author. In the study^[Wooldridge Source: Freeman, D.G. (2007), “Drunk Driving Legislation and Traffic Fatalities: New Evidence on BAC 08 Laws,” Contemporary Economic Policy 25, 293–308.], Wooldridge et al. invistigate the effects of Blood Alcohol Content laws on driving safety in the United States. The data contains observations of each State from 1980 to 2004 which means it includes both longitudinal and cross sectional aspects. Thus, the panel data is the culmination of both discrete and time series statistics and requires panel data analysis. The data was taken during a natural experiment, where the split into treatment and control groups came from state legislatures enacting laws at different times. Specifically, fatality data was aggregated by the Fatality Analysis Reporting System which collects all instances of traffic accidents that result in the death of a vehicle occupant or nonmotorist. The dependent variable is the rate of total traffic fatalities per 100,000 population at the state level.
 
-Is it census? how where when was it collected?
-
-> citation: Wooldridge Source: Freeman, D.G. (2007), “Drunk Driving Legislation and Traffic Fatalities: New Evidence on BAC 08 Laws,” Contemporary Economic Policy 25, 293–308. Professor Freeman kindly provided the data. Data loads lazily. 
-
-    <!-- total traffic fatalities divided by state population -->
     
 3. (20 points) Conduct a very thorough EDA, which should include both graphical and tabular techniques, on the dataset, including both the dependent variable `total_fatalities_rate` and the potential explanatory variables. Minimally, this should include: 
     - How is the our dependent variable of interest `total_fatalities_rate` defined? 
     - What is the average of `total_fatalities_rate` in each of the years in the time period covered in this dataset? 
 
 
-```{r}
-# histograms
-data %>% mutate(log_total_fatalities_rate = log(totfatrte),
-                total_fatalities_rate = totfatrte) %>%
-ggplot(aes(x=total_fatalities_rate)) + geom_histogram(aes(y=..density..), alpha=0.7) + geom_density(alpha=0.3, fill="red") +geom_vline(aes(xintercept=mean(total_fatalities_rate)), color="black", linetype="dashed", size=1) +
-    labs(x="total_fatalities_rate", y = "Density")
-# consider qq plot
-qqnorm(data$totfatrte, main='Not Normal')
-qqline(data$totfatrte)
-# null hypothesis is data is normally distributed
-shapiro.test(data$totfatrte) # reject null, data not normal
-# null hypothesis is normally distributed
-ks.test(data$totfatrte, 'pnorm') # reject null, data not normal
+```{r , warning=FALSE}
+# histogram of total fatality rate
+p1 <- data %>%
+ggplot(aes(x=totfatrte)) + geom_histogram(aes(y=..density..), alpha=0.8) + geom_density(alpha=0.2, fill="cornflowerblue") +geom_vline(aes(xintercept=mean(totfatrte)), color="black", linetype="dashed", size=1) +
+    labs(x="total_fatalities_rate", y = "Density", title='untransformed data will be affected by outliers, right tail')
 
+# histogram of log transform
+p2<-data_clean %>%
+  ggplot(aes(x=log_total_fatalities_rate)) + geom_histogram(aes(y=..density..), alpha=0.8) + geom_density(alpha=0.2, fill="cornflowerblue") +geom_vline(aes(xintercept=mean(log_total_fatalities_rate)), color="black", linetype="dashed", size=1) +
+    labs(x="log_total_fatalities_rate", y = "Density", title='Log transform of total fatality rate reduces outliers')
 
+p1/p2
 ```
 
->We start by examining the dependent variable - total fatality rate. The total fatality rate represents the number of deaths from traffic accidents per 1000 (FIX ME). The histogram of values suggests that the data is not normally distributed because of the long right tail. We can confirm the lack of normality using the Shapiro-Wilk test. The Shapiro-Wilk normality test has the null hypothesis that the data is normally distributed. With a p-value of 1.5e-15, we reject the null hypothesis and conclude that the data needs transformation to improve the linearity between the independent and dependent variables. 
-
-```{r}
-# test log transform
-data_clean %>%
-  ggplot(aes(x=log_total_fatalities_rate)) + geom_histogram(aes(y=..density..), alpha=0.7) + geom_density(alpha=0.3, fill="red") +geom_vline(aes(xintercept=mean(log_total_fatalities_rate)), color="black", linetype="dashed", size=1) +
-    labs(x="log_total_fatalities_rate", y = "Density", title='Log transform of total fatality rate appears normal')
-hist(data_clean$log_total_fatalities_rate)
-shapiro.test(data_clean$log_total_fatalities_rate)
-ks.test(data_clean$log_total_fatalities_rate, 'pnorm') 
-qqnorm(data_clean$log_total_fatalities_rate, main='Normal')
-qqline(data_clean$log_total_fatalities_rate)
-```
-
-After transformation, the dependent variable is now `log_total_fatality_rate` and it appears normally distributed.
+>We start by examining the dependent variable - total fatality rate. The total fatality rate represents the number of deaths from traffic accidents per 100,000 people. The histogram of values shows a mean of about 20 with a long right tail and outlier values near 50. The outliers could lead to a biased model, so we consider a log transform of the dependent variable. The log transform shows a more normal curve and removal of the right tailed outliers. The reduction of outlier effects is a desirable property for regression modeling, so we choose to model the log of total fatality rate, now called `log_total_fatality_rate`.  
 
 
 ```{r, warning=FALSE, message=FALSE, fig.height=4}
 # boxplot over time
-data_clean %>% ggplot(aes(reorder(state, desc(
+p1<- data_clean %>% ggplot(aes(reorder(state, desc(
   log_total_fatalities_rate
 )), log_total_fatalities_rate,
 fill = state)) +
@@ -165,9 +144,13 @@ fill = state)) +
   xlab("State") +
   ylab("Log Total Fatalities Rate") +
   coord_flip()
+p1
+```
+We continue EDA by investigating the effects of log fatality rates on a state by state basis. The boxplot in Figure 1 shows States have varying degrees of both median and spread of fatality rates over time. Each state will play a role in explaining the dependent variable, especially as a time invariant feature.
 
+```{r warning=FALSE, message=FALSE, fig.height=4}
 # lineplot over time
-data_clean %>%
+p2<- data_clean %>%
   ggplot(aes(year, log_total_fatalities_rate, color = state)) +
   geom_point(alpha = 0.4) +
   geom_smooth(method = "lm") +
@@ -187,33 +170,10 @@ data_clean %>%
   xlab("State") +
   ylab("Log Total Fatalities Rate")
 
-
-
-
-data %>% mutate(log_total_fatalities_rate = log(totfatrte),
-                total_fatalities_rate = totfatrte) %>%
-  ggplot() + geom_histogram(aes(total_fatalities_rate)) +
-  geom_histogram(aes(log_total_fatalities_rate))
-
-plot_multi_histogram <- function(df, feature, label_column) {
-    plt <- ggplot(df, aes(x=eval(parse(text=feature)), fill=eval(parse(text=label_column)))) +
-    geom_histogram(alpha=0.7, position="identity", aes(y = ..density..), color="black") +
-    geom_density(alpha=0.7) +
-    geom_vline(aes(xintercept=mean(eval(parse(text=feature)))), color="black", linetype="dashed", size=1) +
-    labs(x=feature, y = "Density")
-    plt + guides(fill=guide_legend(title=label_column))
-}
-
-# data %>% mutate(log_total_fatalities_rate = log(totfatrte),
-#                 total_fatalities_rate = totfatrte) %>%
-# plot_multi_histogram()
-
-
+p2
 ```
 
-> EDA shows that the driver fatality rate has been trending down but is different on a state by state basis.
-> figure 1 shows States have varying degrees of both median and spread of fatality rates over time.
-> figure 2 shows that fatality rate over time has decreased for almost every state
+Next, we consider the log fatality rate over time conditional on each State. Figure 2 shows that fatality rate over time has decreased for almost every state. We can conclude that EDA shows driver fatality rate overall has been trending downward but is different on a state by state basis.
 
 
 
@@ -223,13 +183,10 @@ As with every EDA this semester, the goal of this EDA is not to document your ow
 
 Estimate a linear regression model of *totfatrte* on a set of dummy variables for the years 1981 through 2004 and interpret what you observe. In this section, you should address the following tasks: 
 - Why is fitting a linear model a sensible starting place? 
-<!--From the eda we can see the log_total_fatalities_rate changes linearly over time. -->
 - What does this model explain, and what do you find in this model? 
-<!-- It explains on average for all states, how did log_total_fatalities_rate changes each year.  -->
 1. explain log model (a one unit increase in x becomes a 1 degree increase in y). changing from 1980 t
 2. only includes the change in years, not cross sectional features
 - Did driving become safer over this period? Please provide a detailed explanation.
-<!-- Yes, because all the coefficients of dummy variables for years are negative and significant at 1% level. -->
 - What, if any, are the limitation of this model. In answering this, please consider **at least**: 
     - Are the parameter estimates reliable, unbiased estimates of the truth? Or, are they biased due to the way that the data is structured?
     - Are the uncertainty estimate reliable, unbiased estimates of sampling based variability? Or, are they biased due to the way that the data is structured? 
@@ -237,9 +194,7 @@ Estimate a linear regression model of *totfatrte* on a set of dummy variables fo
 <!-- 1) may suffer from omitted variable effect; 2) serial correlation may cause false variance estimation; 3) cannot answer the question of causality -->
     
     
-> In this section, we pool the state effects together and investigate total fatality rates over time.  
-
-> Linear models are a sensible place to start because they are simple and easy to interpret. In our case, this linear model can show how much the average total fatalities rate changed compared with the year 1980.
+> In this section, we pool the state effects together and investigate total fatality rates over time using a linear model. Linear models are a sensible place to start because they are simple and easy to interpret. In our case, this linear model can show how much the average total fatalities rate changed each year compared to 1980.
 
 ```{r}
 preliminary_model  <- lm(log_total_fatalities_rate ~ year, data = data_clean)
@@ -266,13 +221,40 @@ new_data <- data_clean %>% filter(state==1)
 pred <- predict(preliminary_model,newdata = new_data)
 pred <- exp(pred)
 
-plot(c(1980:2004), pred)
+# plot(c(1980:2004), pred)
 data.frame(year=c(1980:2004), total_fatality_rate=pred) %>% ggplot() +
-  geom_point(aes(x=year, y=total_fatality_rate)) + geom_smooth(aes(x=year, y=total_fatality_rate))
+  geom_point(aes(x=year, y=total_fatality_rate)) + geom_smooth(aes(x=year, y=total_fatality_rate)) + labs(title='Preliminary Model estimations for total fatality rate from 1980 to 2004')
 ```
 
 
-> An important feature of the dataset is that it has both longitudinal (recorded fatality rates for years 1980-2004) and cross sectional (the state at which the driving occured) features which are hallmarks of panel data. In this way, each state has multiple records in the dataset corresponding to different years, such that Alabama has 24 repeated observations in the dataset, one for each year.  This feature introduces omitted variable bias because the states likely have effects on fatality rates that we do not see but will violate our model assummptions based on repeated sampling. Specifically, this linear model regressing year on log total fatality rate violates the IID assumption. For example the state variable represents the location in the US that the drivers are in. the state is repeated across years which means that each data point is not idependent and identically distributed. 
+
+> An important feature of the dataset is that it has both longitudinal (recorded fatality rates for years 1980-2004) and cross sectional (the state at which the driving occured) features which are hallmarks of panel data. In this way, each state has multiple records in the dataset corresponding to different years, such that Alabama has 24 repeated observations in the dataset, one for each year.  This property can lead to violations in the linear model assumptions, specifically that there is no correlation in the residuals. 
+
+> We can test the independence of the model residuals using the Ljung-Box test, which has the following hypothesis.
+
+
+$$H_0: data\ are\ independently\ distributed$$
+$$H_A: data\ are\ not\ independently\ distributed$$
+```{r}
+plot(preliminary_model$residuals, main = 'residuals of the preliminary model vs record index', ylab = 'residuals')
+
+preliminary_model$residuals %>% as.ts() -> resid.ts
+Box.test(resid.ts, lag = 1, type = "Ljung-Box")
+
+Box.test(resid.ts, lag = 10, type = "Ljung-Box")
+# fails both lag 1 and lag 10 tests for independence
+
+
+```
+
+> The plot above shows the residuals of the preliminary model moving in a wave pattern, a feature of serial correlation. When testing to see if the residuals of the model were independent, we used the Ljung-Box test with the null hypothesis that the data is independent. Based on the test, the p-value is less than 0.05 for both 1 and 10 lags, and we reject the null hypothesis, the residuals are not independent. For this reason, the results of the linear model are not reliable, and we should consider better models for panel data that incoporate both time and cross sectional features, like a fixed effects model.
+
+> (Consider cutting?) We can conclude that the linear model regressing year on log total fatality rate violates the IID assumption. The state is repeated across years which means that each data point is not idependent and identically distributed. 
+
+
+(CUT)
+> The additional of the cross sectional features should improve the model and alleviate some omitted variable bias. This feature introduces omitted variable bias because the states likely have effects on fatality rates that we do not see but will violate our model assummptions based on repeated sampling. Specifically, this linear model regressing year on log total fatality rate violates the IID assumption. For example the state variable represents the location in the US that the drivers are in. the state is repeated across years which means that each data point is not idependent and identically distributed. 
+
 > We take the results of this model with a grain of salt because linear models are not reliable with panel data since they violate iid. 
 
 > pooled data (not independent) has to do with the way the data is strucutured not the sampling variability
@@ -285,7 +267,6 @@ data.frame(year=c(1980:2004), total_fatality_rate=pred) %>% ggplot() +
 
 Expand the **Preliminary Model** by adding variables related to the following concepts: 
 
-> consider when laws were passed, if eda shows groupings of states, years, and laws, and consider alpha corrections, like bonferoni
 > do stargazer on simple model, full model, best fit model using anova
 > discuss significance, and parameter values
 > refactor bac into one variable, with 3 factors 0, 1, 2, with 0 as no law, 1 as bac08 law, 2 as bac10 law
@@ -321,7 +302,7 @@ If it is appropriate, include transformations of these variables. Please careful
 
 > BAC laws put a limit on alcohol consumption for drivers where BAC is measured in a percentage of alcohol in the blood. Before Congress enacted a national BAC limit in the year 2000, each state was able to enact their own laws with varying legal limits on BAC. Our data set identifies these laws as a state having no BAC limit, a BAC limit of .08, and a BAC limit of .10. We label the state based on the law that was in place for the majority of the year. 
 
-> The effect of having no BAC law was added to the intercept term, which also includes the effects of the year 1980, no seatbelt laws, and more. The estimate for having a BAC08 law was -0.062 with a p-value of 0.01. That means that states enacting a BAC law limit of 0.08 see a decrease in fatality rate of `r exp(0.062)` all else being equal. States that enact a more lenient level of 0.10 BAC see less of an effect. Those states see a decrease in fatality rates of `r exp(0.0170)`, but with a pvalue of 0.34 the effect is not statistically significant.
+> The effect of having no BAC law was absorbed by the intercept term, which also includes the effects of the year 1980, no seatbelt laws, and more. The estimate for having a BAC08 law was -0.062 with a p-value of 0.01. That means that states enacting a 0.08 BAC law expect a decrease in fatality rate of `r round(exp(0.062),3)` all else being equal. States that enact a more lenient level of 0.10 BAC see less of an effect. Those states see a decrease in fatality rates of `r round(exp(0.0170),3)`, but with a pvalue of 0.34 the effect is not statistically significant.
 
 - Do *per se laws* have a negative effect on the fatality rate? 
 
@@ -330,9 +311,9 @@ If it is appropriate, include transformations of these variables. Please careful
 
 - Does having a primary seat belt law? 
 
-> Seat belts help reduce injuries and fatalities in car crashes. In an attempt to improve seat belt usage, states enacted primary and secondary seat belt laws. Primary seat belt laws allow law enforcement to stop drivers and give tickets to drivers not wearing a seatbelt. Secondary laws allow police performing a traffic stop for another reason, say speeding, to give out tickets for not wearing a seat belt. Secondary laws would be considered more stringent.
+> Seat belts help reduce injuries and fatalities in car crashes. In an attempt to improve seat belt usage, states enacted primary and secondary seat belt laws. Primary seat belt laws allow law enforcement to stop drivers and give tickets for not wearing a seatbelt. Secondary laws allow police performing a traffic stop for another reason, say speeding, to give out tickets for not wearing a seat belt. Secondary laws would be considered more stringent.
 
-> The coefficients for primary and secondary seatbelt laws are 0.009 and 0.02042 respectively. Unfortunately, both p-values are much larger than the critical value at 0.96 and 0.34 respectively, meaning that there is not enough evidence to suggest that there is a significant relationship between seatbelt laws and log fatality rates, all else equal. 
+> The coefficients for primary and secondary seatbelt laws are 0.009 and 0.02042 respectively. Unfortunately, both p-values are much larger than the critical value of 0.05, with the p-value of primary laws being 0.96 and the p-value of secondary laws being 0.34. There is not enough evidence to suggest that there is a significant relationship between seatbelt laws and log fatality rates, all else equal. 
 
 ```{r}
 expanded_model = plm(
@@ -395,11 +376,11 @@ For pooled OLS to be the appropriate estimator, we need to assume:
 
 3- **Indentifiability**: the regressors, including a constant, are not perfectly collinear, and all regressors (but the constant) have non-zero variance and not too many extreme values.
 
-4- The independent variables is **uncorrelated** with idiosyncratic error term and individual-specific effect.
+4- The independent variables are **uncorrelated** with idiosyncratic error term and individual-specific effect.
 
 The pooled OLS estimator is consistent under assumptions 1-4. We also need to assume **homoskedasticity** and **no serial correlation** in the data to do inference based on the conventional OLS estimator of the covariance matrix.
 
-The main issues of pooled OLS is when the unobserved individual-specific effects are correlated with the independent variables, the model will suffer from an omitted variable bias. In this case, the fixed effect(FE) model is preferred because it eliminates the unobserved time-invariant effects by de-mean procedures. The rest of the assumptions for the FE model are the same.
+The main issues of pooled OLS is when the unobserved individual-specific effects are correlated with the independent variables, the model will suffer from an omitted variable bias. In this case, the fixed effect (FE) model is preferred because it eliminates the unobserved time-invariant effects by de-mean procedures. The rest of the assumptions for the FE model are the same.
 
 We can run a test to see whether the pooled OLS model is better than the FE model as below. The null hypothesis is rejected, suggesting the significance of individual fixed effects. **Therefore, the FE model provides better estimates**.
 
@@ -418,7 +399,7 @@ Instead of estimating a fixed effects model, should you have estimated a random 
 
 ## Answer:
 
-The random effects(RE) model assumes the time-invariant unobserved effect is uncorrelated with the explanatory variables. Other than that, the rest assumptions are the same with the FE model. Whether the time-invariant unobserved effect is uncorrelated with the explanatory variables can be tested with a Hausman test as below. **We reject the null hypothesis, suggesting the assumption is not met.** ^[We notice that if we use the original total fatalities rate instead of its logged version, the test will fail to reject the null hypothesis. Therefore, the data transformation can also influence the validity of the model choice.] Since the individual specific effects exist and they are correlated with the explanatory variables, the random effect model will suffer from biased coefficient estimates and standard error estimates.
+The random effects (RE) model assumes the time-invariant unobserved effect is uncorrelated with the explanatory variables. Other than that, the assumptions are the same as the FE model. Whether the time-invariant unobserved effect is uncorrelated with the explanatory variables can be tested with a Hausman test as below. **We reject the null hypothesis, suggesting the assumption is not met.** ^[We notice that if we use the original total fatalities rate instead of its logged version, the test will fail to reject the null hypothesis. Therefore, the data transformation can also influence the validity of the model choice.] Since the individual specific effects exist and they are correlated with the explanatory variables, the random effect model will suffer from biased coefficient estimates and standard error estimates.
 
 ```{r}
 random_effect_model = plm(
