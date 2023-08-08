@@ -546,13 +546,24 @@ pdwtest(fixed_effect_model)
 pbgtest(fixed_effect_model, order = 2)
 ```
 
-We need to evaluate the error here. Choose the right standard error and then do the reporting. End with a stargazer report
+We chose to use Arrellano standard errors because they are the most robust to both heteroskedasticity and serial correlation. The models are compared with Arrellano SE in the stargazer table below to conclude our analysis.
 
-```{r}
-fixed_effect_model
-summary(fixed_effect_model)$coe # normal se
-## heteroscedasticity-robust SE
-summary(fixed_effect_model, vcov=vcovHC(fixed_effect_model, method="white1", type="HC1"))$coe
+```{r warning=FALSE}
+# if heteroskadasticity AND serial autocorrelation,
+# use arrellano standard errors
+fe_arrellano.se <- sqrt(diag(vcovHC(fixed_effect_model, method="arellano", type="HC0")))
+re_arrellano.se <- sqrt(diag(vcovHC(random_effect_model, method="arellano", type="HC0")))
+pooled_arrellano.se <- sqrt(diag(vcovHC(expanded_model, method="arellano", type="HC0")))
 
+stargazer(
+  expanded_model,
+  fixed_effect_model,
+  random_effect_model,
+  se=list(pooled_arrellano.se,fe_arrellano.se, re_arrellano.se), # must be list
+  type = "text",
+  omit = c("year"),
+  omit.labels = c("year dummy variables"),
+  column.labels = c("Pooled", "Fixed Effects", "Random Effects")
+)
 ```
 
