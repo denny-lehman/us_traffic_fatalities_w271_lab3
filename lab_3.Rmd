@@ -289,10 +289,6 @@ The plot above shows the residuals of the preliminary model moving in a wave pat
 
 Expand the **Preliminary Model** by adding variables related to the following concepts: 
 
-> do stargazer on simple model, full model, best fit model using anova
-> discuss significance, and parameter values
-> refactor bac into one variable, with 3 factors 0, 1, 2, with 0 as no law, 1 as bac08 law, 2 as bac10 law
-
 - Blood alcohol levels 
 - Per se laws
 - Primary seat belt laws (Note that if a law was enacted sometime within a year the fraction of the year is recorded in place of the zero-one indicator.)
@@ -326,9 +322,9 @@ The table below summarizes how to reflect the concepts with our data and their t
 | Vehicle miles driven per capita             | vehicmiles, statepop |       | yes                | The ratio of these two variables. Since it's is right-skewed, we perform log transformation |
 
 
-BAC laws put a limit on alcohol consumption for drivers where BAC is measured in a percentage of alcohol in the blood. Before Congress enacted a national BAC limit in the year 2000, each state was able to enact their own laws with varying legal limits on BAC. Our data set identifies these laws as a state having no BAC limit, a BAC limit of .08, and a BAC limit of .10. We label the state based on the law that was in place for the majority of the year. 
+BAC laws put a limit on alcohol consumption for drivers where BAC is measured in a percentage of alcohol in the blood. Before Congress enacted a national BAC limit in the year 2000, each state was able to enact their own laws with varying legal limits on BAC. Our data set identifies these laws as a state having no BAC limit, a BAC limit of .10, and a BAC limit of .08. We label the state based on the law that was in place for the majority of the year. 
 
-The effect of having no BAC law was absorbed by the intercept term, which also includes the effects of the year 1980, no seatbelt laws, and more. The estimate for having a BAC08 law was -0.062 with a p-value of 0.01. That means that states enacting a 0.08 BAC law expect a decrease in fatality rate of `r round(exp(0.062),3)` all else being equal. States that enact a more lenient level of 0.10 BAC see less of an effect. Those states see a decrease in fatality rates of `r round(exp(0.0170),3)`, but with a pvalue of 0.34 the effect is not statistically significant.
+The effect of having no BAC law was absorbed by the intercept term, which also includes the effects of the year 1980, no seatbelt laws, and more. The estimate for having a BAC08 law was -0.062 with a p-value of 0.01. That means that states enacting a 0.08 BAC law expect a decrease in fatality rate of 6.2% all else being equal. States that enact a more lenient level of 0.10 BAC see less of an effect. Those states see a decrease in fatality rates of 1.7%, but with a p-value of 0.34 the effect is not statistically significant.
 
 Per se laws strive to improve driver safety by allowing judges to suspend the license of an arrest drunk driver before they are convicted of a crime. Unfortunately, the pooled model does not support the effect. With a coefficient -0.01 and a p-value 0.19, there is not enough evidence to support per se laws significantly improving safety via log fatality rates.  
 
@@ -396,7 +392,7 @@ For pooled OLS to be the appropriate estimator, we need to assume:
 
 2- **I.I.D.** : The observations are independent across individuals but not necessarily across time.
 
-3- **Indentifiability**: the regressors, including a constant, are not perfectly collinear, and all regressors (but the constant) have non-zero variance and not too many extreme values.
+3- **Indentifiability**: the regressors, including a constant, are not perfectly colinear, and all regressors (but the constant) have non-zero variance and not too many extreme values.
 
 4- The independent variables are **uncorrelated** with idiosyncratic error term and individual-specific effect.
 
@@ -548,6 +544,15 @@ We perform both Durbin Watson test and Breusch-Godfrey test for the FE model. As
 ```{r}
 pdwtest(fixed_effect_model)
 pbgtest(fixed_effect_model, order = 2)
+```
+
+We need to evaluate the error here. Choose the right standard error and then do the reporting. End with a stargazer report
+
+```{r}
+fixed_effect_model
+summary(fixed_effect_model)$coe # normal se
+## heteroscedasticity-robust SE
+summary(fixed_effect_model, vcov=vcovHC(fixed_effect_model, method="white1", type="HC1"))$coe
 
 ```
 
