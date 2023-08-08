@@ -113,7 +113,6 @@ data_clean <- data %>% mutate(
 ## Answer.2
 
 The data comes from a study conducted by our textbook author. In the study^[Wooldridge Source: Freeman, D.G. (2007), “Drunk Driving Legislation and Traffic Fatalities: New Evidence on BAC 08 Laws,” Contemporary Economic Policy 25, 293–308.], Wooldridge et al. invistigate the effects of Blood Alcohol Content laws on driving safety in the United States. The data contains observations of each State from 1980 to 2004 which means it includes both longitudinal and cross sectional aspects. Thus, the panel data is the culmination of both discrete and time series statistics and requires panel data analysis. The data was taken during a natural experiment, where the split into treatment and control groups came from state legislatures enacting laws at different times. Specifically, fatality data was aggregated by the Fatality Analysis Reporting System which collects all instances of traffic accidents that result in the death of a vehicle occupant or nonmotorist. The dependent variable is the rate of total traffic fatalities per 100,000 population at the state level.
-
     
 3. (20 points) Conduct a very thorough EDA, which should include both graphical and tabular techniques, on the dataset, including both the dependent variable `total_fatalities_rate` and the potential explanatory variables. Minimally, this should include: 
     - How is the our dependent variable of interest `total_fatalities_rate` defined? 
@@ -310,7 +309,7 @@ If it is appropriate, include transformations of these variables. Please careful
 The table below summarizes how to reflect the concepts with our data and their transformation. The only explanation needed is the "Round" procedure. The related variables( *bac08*, *bac10*, *perse*, *sl70plus*, *gld*) are conceptually dummy variables. However, we see some fractional number in the raw data, which denotes the amount of time it was in effect (a law starting in June would have 6/12 months = 0.5 value). We engineer these features using rounding such that our new feature shows if the law was effective for the majority of the year.
 
 | Concept                                     | Variable in raw data     | Round | Log trans. | Description                                                                                                 |
-| ------------------------------------------- | ------------------------ | ----- | ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| ----------------------------------------------- | ------------------------ | ---------- | ------------------ | ------------------------------------------------------------------------------------------ |
 | Blood alcohol levels                        | bac08, bac10             | yes   |                    | Combine bac08 and bac10 into a ordinal variabe: None=no limit; bac10=limit at 0.1; bac08=limit at 0.08  |
 | Per se laws                                 | perse                    | yes   |                    | 0=no per se law, 1=per se law                                                                               |
 | Primary seat belt laws                      | seatblet                 |    |                    | 0=no seat belt law; 1=primary, 2=secondary                                                              |
@@ -359,13 +358,23 @@ Which set of estimates do you think is more reliable? Why do you think this?
 
 ## Answer:
 
-From the comparison below we can see:
+Now we re-estimate the model using fixed effects at the state level. The pooled OLS with time-invariant individual specific model can be expressed as:
 
-1. The coefficients for *blood alcohol limit* is -0.02 for limit at 0.08 and -0.16 for limit at 0.1, both less negative than those in the pooled model. Unlike the pooled model, the blood_alcohol_limit are not significant.
+$$y_{it} = \alpha+\boldsymbol\beta \boldsymbol{x_{it}}+\gamma_i +u_{it}$$
+where:
 
-2. The coefficient for *per se law* is -0.053, which becomes significant and more negative in the FE model, suggesting adopting the per se law helps reduce the total fatalities rate by nearly 5%. (note that we approximate the log change with percent change)
+-   $y_{it}$: a dependent variable
 
-3. The coefficient for *primary seat belt law* is -0.04, which also becomes significant and more negative in the FE model, implying the primary seat belt law can help reduce  the total fatalities rate by nearly 4%.
+-   $\boldsymbol\beta \boldsymbol{x_{it}}$: explanatory variable vectors
+
+-   $\gamma_i$: an unobserved individual-specific effect(time-invariant)
+
+-   $u_{it}$: - an idiosyncratic error term (observation-specific zero-mean random-error term, analogous to the random-error term of cross-sectional regression analysis).
+
+The fixed effect first demeans the variables to remove group averages and then run the regression, which eliminates the fixed effect coefficients $\gamma_i$:
+
+$$(y_{it}-\bar{y}_{i})=\boldsymbol\beta(\boldsymbol{x_{it}-\bar{x}_{i}})+(\epsilon_{it}-\bar{\epsilon}_{i})$$
+We compare the result of both models as below:[For now we just keep the ordinary standard error here. We'll discuss its problem and solution in the last section. Same for the random effect model in the next section.]
 
 ```{r} 
 fixed_effect_model = plm(
@@ -385,6 +394,14 @@ stargazer(
   column.labels = c("Pooled", "Fixed Effect")
 )
 ```
+
+From the comparison below we can see:
+
+1. The coefficients for *blood alcohol limit* is -0.02 for limit at 0.08 and -0.16 for limit at 0.1, both less negative than those in the pooled model. Unlike the pooled model, the blood_alcohol_limit are not significant.
+
+2. The coefficient for *per se law* is -0.053, which becomes significant and more negative in the FE model, suggesting adopting the per se law helps reduce the total fatalities rate by nearly 5%. (note that we approximate the log change with percent change)
+
+3. The coefficient for *primary seat belt law* is -0.04, which also becomes significant and more negative in the FE model, implying the primary seat belt law can help reduce  the total fatalities rate by nearly 4%.
 
 For pooled OLS to be the appropriate estimator, we need to assume:
 
@@ -546,7 +563,7 @@ pdwtest(fixed_effect_model)
 pbgtest(fixed_effect_model, order = 2)
 ```
 
-We chose to use Arrellano standard errors because they are the most robust to both heteroskedasticity and serial correlation. The models are compared with Arrellano SE in the stargazer table below to conclude our analysis.
+We chose to use Arrellano standard errors because they are the most robust to both heteroskedasticity and serial correlation. The coefficients with Arrellano SE are shown in the stargazer table below. Note that for the FE model, compared with the results based on non-robust SE in Section 5, the significance of two variables change: 1) the primary seat belt law is no longer significant under Arrellano SE; 2) the *perc14_24* becomes marginally significant (at 10% level) from very significant (at 1% level) under Arrellano SE.
 
 ```{r warning=FALSE}
 # if heteroskadasticity AND serial autocorrelation,
