@@ -239,7 +239,7 @@ To achieve the total fatality rate, we require the inverse transform for the log
 
 $$ total.fatality.rate_i = exp(\beta_{1980} + \Sigma_{i=1981}^{2004}\beta_i*I(year_i))$$
 
-Initially, our model estimates that the total fatality rate of 1980 is `r round(exp(3.195),2)`. With a p-value near 0, this estimate is statistically significant. The additional beta's of the model are the estimations of each year's impact on the fatality rate from the baseline of 1980. The coefficients over time are negative and decreasing, meaning that the model suggests driving got safer over the period because the fatality rate decreased. Almost all of these estimates, save for 1981 only, are statistically significant. 
+Initially, our model estimates that the total fatality rate of 1980 is `r round(exp(3.195),2)`. With a p-value near 0, this estimate is statistically significant. The additional betas of the model are the estimations of each year's impact on the fatality rate from the baseline of 1980. The coefficients over time are negative and decreasing, meaning that the model suggests driving got safer over the period because the fatality rate decreased. Almost all of these estimates, save for 1981 only, are statistically significant. 
 
 ```{r, fig.height=3}
 #model estimated fatality rate over time
@@ -550,7 +550,7 @@ If there were serial correlation or heteroskedasticity in the idiosyncratic erro
 
 Serial correlation or heteroskedasticity will not influence the consistence of the estimators but will lead to inaccurate estimate of their standard errors.
 
-We can use Breusch Pagan test the FE model (the only valid one) for heteroskedasticity. As shown below, the test rejects the null hypothesis of homoskedasticity, in favor of heteroskedasticity. Therefore, we should use robust standard error estimates.
+We can use Breusch Pagan test on the FE model (the only valid one) for heteroskedasticity. As shown below, the test rejects the null hypothesis of homoskedasticity, in favor of heteroskedasticity. Therefore, we should use robust standard error estimates.
 
 ```{r}
 pcdtest(fixed_effect_model, test = "lm")
